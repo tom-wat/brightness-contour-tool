@@ -25,6 +25,7 @@ export interface CannySettings {
   enabled: boolean;
   thresholdMode: 'manual' | 'auto' | 'adaptive';
   params: CannyParams;
+  opacity: number;
   postProcessing: {
     thinning: boolean;
     shortEdgeRemoval: boolean;

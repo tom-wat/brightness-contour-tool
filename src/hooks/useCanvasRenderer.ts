@@ -9,7 +9,8 @@ interface UseCanvasRendererReturn {
     brightnessData: BrightnessData | null,
     edgeData: ImageData | null,
     displayMode: DisplayMode,
-    contourSettings: ContourSettings
+    contourSettings: ContourSettings,
+    cannyOpacity?: number
   ) => void;
   clearCanvas: () => void;
 }
@@ -135,12 +136,63 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return combined;
   };
 
+  const combineWithCannyEdges = (
+    base: ImageData,
+    edges: ImageData,
+    edgeColor: 'white' | 'dark' = 'white',
+    opacity: number = 100
+  ): ImageData => {
+    const combined = new ImageData(base.width, base.height);
+    
+    for (let i = 0; i < base.data.length; i += 4) {
+      const baseR = base.data[i]!;
+      const baseG = base.data[i + 1]!;
+      const baseB = base.data[i + 2]!;
+      const baseA = base.data[i + 3]!;
+
+      const edgeR = edges.data[i]!;
+      const edgeG = edges.data[i + 1]!;
+      const edgeB = edges.data[i + 2]!;
+      const edgeA = edges.data[i + 3]!;
+
+      // エッジが存在する場合（白いピクセル）
+      if (edgeA > 0 && (edgeR > 128 || edgeG > 128 || edgeB > 128)) {
+        const edgeOpacity = (opacity / 100) * 255;
+        const blendRatio = opacity / 100;
+        
+        if (edgeColor === 'dark') {
+          // エッジは暗い色で表示（等高線との区別のため）
+          const edgeColorValue = 40;
+          combined.data[i] = baseR * (1 - blendRatio) + edgeColorValue * blendRatio;
+          combined.data[i + 1] = baseG * (1 - blendRatio) + edgeColorValue * blendRatio;
+          combined.data[i + 2] = baseB * (1 - blendRatio) + edgeColorValue * blendRatio;
+          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
+        } else {
+          // エッジは白色で表示
+          combined.data[i] = baseR * (1 - blendRatio) + 255 * blendRatio;
+          combined.data[i + 1] = baseG * (1 - blendRatio) + 255 * blendRatio;
+          combined.data[i + 2] = baseB * (1 - blendRatio) + 255 * blendRatio;
+          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
+        }
+      } else {
+        // エッジがない場合はベース画像を表示
+        combined.data[i] = baseR;
+        combined.data[i + 1] = baseG;
+        combined.data[i + 2] = baseB;
+        combined.data[i + 3] = baseA;
+      }
+    }
+
+    return combined;
+  };
+
   const renderImage = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
     edgeData: ImageData | null,
     displayMode: DisplayMode,
-    contourSettings: ContourSettings
+    contourSettings: ContourSettings,
+    cannyOpacity: number = 100
   ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -202,14 +254,23 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
       case DisplayMode.COLOR_WITH_CANNY:
         if (edgeData) {
-          finalImageData = combineImageData(baseImageData, edgeData);
+          finalImageData = combineWithCannyEdges(baseImageData, edgeData, 'white', cannyOpacity);
         }
         break;
 
       case DisplayMode.CONTOUR_WITH_CANNY:
         if (brightnessData && edgeData) {
           const contourData = detectContours(brightnessData, contourSettings);
-          finalImageData = combineImageData(contourData, edgeData);
+          finalImageData = combineWithCannyEdges(contourData, edgeData, 'dark', cannyOpacity);
+        }
+        break;
+
+      case DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY:
+        if (brightnessData && edgeData) {
+          const grayscaleData = convertToGrayscale(baseImageData);
+          const contourData = detectContours(brightnessData, contourSettings);
+          const grayscaleWithContour = combineImageData(grayscaleData, contourData);
+          finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
         }
         break;
 
@@ -217,7 +278,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         if (brightnessData && edgeData) {
           const contourData = detectContours(brightnessData, contourSettings);
           const colorWithContour = combineImageData(baseImageData, contourData);
-          finalImageData = combineImageData(colorWithContour, edgeData);
+          finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
         }
         break;
 

@@ -15,11 +15,11 @@ export const ImageViewControls: React.FC<ImageViewControlsProps> = ({
   // onActualSize,
 }) => {
   return (
-    <div className="bg-white border-b border-slate-200 px-6 py-3">
+    <div className="bg-white border-b border-gray-200 px-6 py-3">
       <div className="flex items-center justify-end">
         <div className="flex items-center space-x-4">
           {/* Placeholder for zoom controls */}
-          <div className="text-sm text-slate-400">
+          <div className="text-sm text-gray-400">
             Zoom controls will be added here
           </div>
         </div>

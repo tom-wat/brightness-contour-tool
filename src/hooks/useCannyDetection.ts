@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CannyParams, ThresholdPair, OtsuResult } from '../types/CannyTypes';
+import { openCVProcessor } from '../utils/OpenCVProcessor';
 
 interface UseCannyDetectionReturn {
   edgeData: ImageData | null;
   isProcessing: boolean;
   error: string | null;
+  openCVLoaded: boolean;
   detectEdges: (imageData: ImageData, params: CannyParams) => Promise<void>;
   calculateOptimalThresholds: (imageData: ImageData) => ThresholdPair;
   clearEdges: () => void;
@@ -14,219 +16,23 @@ export const useCannyDetection = (): UseCannyDetectionReturn => {
   const [edgeData, setEdgeData] = useState<ImageData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openCVLoaded, setOpenCVLoaded] = useState(false);
 
-  const gaussianBlur = (imageData: ImageData, sigma: number = 1.4): ImageData => {
-    const { width, height, data } = imageData;
-    const blurred = new ImageData(width, height);
-    const kernel = createGaussianKernel(sigma);
-    const kernelSize = kernel.length;
-    const halfKernel = Math.floor(kernelSize / 2);
-
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        let sum = 0;
-        let weightSum = 0;
-
-        for (let ky = 0; ky < kernelSize; ky++) {
-          for (let kx = 0; kx < kernelSize; kx++) {
-            const pixelX = x + kx - halfKernel;
-            const pixelY = y + ky - halfKernel;
-
-            if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
-              const pixelIndex = (pixelY * width + pixelX) * 4;
-              const brightness = 0.299 * data[pixelIndex]! + 0.587 * data[pixelIndex + 1]! + 0.114 * data[pixelIndex + 2]!;
-              const weight = kernel[ky]?.[kx] ?? 0;
-
-              sum += brightness * weight;
-              weightSum += weight;
-            }
-          }
-        }
-
-        const outputIndex = (y * width + x) * 4;
-        const value = weightSum > 0 ? sum / weightSum : 0;
-        blurred.data[outputIndex] = value;
-        blurred.data[outputIndex + 1] = value;
-        blurred.data[outputIndex + 2] = value;
-        blurred.data[outputIndex + 3] = data[outputIndex + 3]!;
+  // OpenCV.jsの読み込み状態を監視
+  useEffect(() => {
+    const checkOpenCVStatus = async () => {
+      try {
+        await openCVProcessor.ensureLoaded();
+        setOpenCVLoaded(true);
+      } catch (err) {
+        console.warn('OpenCV.js loading failed:', err);
+        setOpenCVLoaded(false);
       }
-    }
+    };
 
-    return blurred;
-  };
+    checkOpenCVStatus();
+  }, []);
 
-  const createGaussianKernel = (sigma: number): number[][] => {
-    const size = Math.ceil(sigma * 3) * 2 + 1;
-    const kernel: number[][] = [];
-    const twoSigmaSquare = 2 * sigma * sigma;
-    let sum = 0;
-
-    for (let y = 0; y < size; y++) {
-      kernel[y] = [];
-      for (let x = 0; x < size; x++) {
-        const dx = x - Math.floor(size / 2);
-        const dy = y - Math.floor(size / 2);
-        const distance = dx * dx + dy * dy;
-        const value = Math.exp(-distance / twoSigmaSquare);
-        kernel[y]![x] = value;
-        sum += value;
-      }
-    }
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        kernel[y]![x]! /= sum;
-      }
-    }
-
-    return kernel;
-  };
-
-  const calculateGradient = (imageData: ImageData): { magnitude: number[][]; direction: number[][] } => {
-    const { width, height, data } = imageData;
-    const magnitude: number[][] = [];
-    const direction: number[][] = [];
-
-    const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
-    const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
-
-    for (let y = 0; y < height; y++) {
-      magnitude[y] = [];
-      direction[y] = [];
-      
-      for (let x = 0; x < width; x++) {
-        let gx = 0, gy = 0;
-
-        for (let ky = -1; ky <= 1; ky++) {
-          for (let kx = -1; kx <= 1; kx++) {
-            const pixelX = Math.max(0, Math.min(width - 1, x + kx));
-            const pixelY = Math.max(0, Math.min(height - 1, y + ky));
-            const pixelIndex = (pixelY * width + pixelX) * 4;
-            const intensity = data[pixelIndex]!;
-
-            gx += intensity * sobelX[ky + 1]![kx + 1]!;
-            gy += intensity * sobelY[ky + 1]![kx + 1]!;
-          }
-        }
-
-        magnitude[y]![x] = Math.sqrt(gx * gx + gy * gy);
-        direction[y]![x] = Math.atan2(gy, gx);
-      }
-    }
-
-    return { magnitude, direction };
-  };
-
-  const nonMaximumSuppression = (
-    magnitude: number[][],
-    direction: number[][]
-  ): number[][] => {
-    const height = magnitude.length;
-    const width = magnitude[0]!.length;
-    const suppressed: number[][] = [];
-
-    for (let y = 0; y < height; y++) {
-      suppressed[y] = [];
-      for (let x = 0; x < width; x++) {
-        const angle = direction[y]![x]! * (180 / Math.PI);
-        const normalizedAngle = ((angle % 180) + 180) % 180;
-
-        let neighbor1 = 0, neighbor2 = 0;
-
-        if ((normalizedAngle >= 0 && normalizedAngle < 22.5) || (normalizedAngle >= 157.5 && normalizedAngle <= 180)) {
-          neighbor1 = x > 0 ? magnitude[y]![x - 1]! : 0;
-          neighbor2 = x < width - 1 ? magnitude[y]![x + 1]! : 0;
-        } else if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) {
-          neighbor1 = (x > 0 && y > 0) ? magnitude[y - 1]![x - 1]! : 0;
-          neighbor2 = (x < width - 1 && y < height - 1) ? magnitude[y + 1]![x + 1]! : 0;
-        } else if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) {
-          neighbor1 = y > 0 ? magnitude[y - 1]![x]! : 0;
-          neighbor2 = y < height - 1 ? magnitude[y + 1]![x]! : 0;
-        } else {
-          neighbor1 = (x < width - 1 && y > 0) ? magnitude[y - 1]![x + 1]! : 0;
-          neighbor2 = (x > 0 && y < height - 1) ? magnitude[y + 1]![x - 1]! : 0;
-        }
-
-        const currentMagnitude = magnitude[y]![x]!;
-        if (currentMagnitude >= neighbor1 && currentMagnitude >= neighbor2) {
-          suppressed[y]![x] = currentMagnitude;
-        } else {
-          suppressed[y]![x] = 0;
-        }
-      }
-    }
-
-    return suppressed;
-  };
-
-  const hysteresisThresholding = (
-    suppressed: number[][],
-    lowThreshold: number,
-    highThreshold: number
-  ): ImageData => {
-    const height = suppressed.length;
-    const width = suppressed[0]!.length;
-    const edges = new ImageData(width, height);
-    const strong = 255;
-    const weak = 75;
-
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const pixel = suppressed[y]![x]!;
-        const index = (y * width + x) * 4;
-
-        if (pixel >= highThreshold) {
-          edges.data[index] = strong;
-          edges.data[index + 1] = strong;
-          edges.data[index + 2] = strong;
-          edges.data[index + 3] = 255;
-        } else if (pixel >= lowThreshold) {
-          edges.data[index] = weak;
-          edges.data[index + 1] = weak;
-          edges.data[index + 2] = weak;
-          edges.data[index + 3] = 255;
-        } else {
-          edges.data[index] = 0;
-          edges.data[index + 1] = 0;
-          edges.data[index + 2] = 0;
-          edges.data[index + 3] = 0;
-        }
-      }
-    }
-
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const index = (y * width + x) * 4;
-        if (edges.data[index] === weak) {
-          let hasStrongNeighbor = false;
-          
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const neighborIndex = ((y + dy) * width + (x + dx)) * 4;
-              if (edges.data[neighborIndex] === strong) {
-                hasStrongNeighbor = true;
-                break;
-              }
-            }
-            if (hasStrongNeighbor) break;
-          }
-
-          if (hasStrongNeighbor) {
-            edges.data[index] = strong;
-            edges.data[index + 1] = strong;
-            edges.data[index + 2] = strong;
-          } else {
-            edges.data[index] = 0;
-            edges.data[index + 1] = 0;
-            edges.data[index + 2] = 0;
-            edges.data[index + 3] = 0;
-          }
-        }
-      }
-    }
-
-    return edges;
-  };
 
   const calculateHistogram = (imageData: ImageData): number[] => {
     const histogram = new Array(256).fill(0);
@@ -292,10 +98,18 @@ export const useCannyDetection = (): UseCannyDetectionReturn => {
     setError(null);
 
     try {
-      const blurred = gaussianBlur(imageData);
-      const { magnitude, direction } = calculateGradient(blurred);
-      const suppressed = nonMaximumSuppression(magnitude, direction);
-      const edges = hysteresisThresholding(suppressed, params.lowThreshold, params.highThreshold);
+      if (!openCVLoaded) {
+        throw new Error('OpenCV.js is not loaded yet. Please wait and try again.');
+      }
+
+      // OpenCV.js版のみ使用（高精度）
+      const edges = openCVProcessor.cannyEdgeDetection(
+        imageData,
+        params.lowThreshold,
+        params.highThreshold,
+        params.apertureSize || 3,
+        params.L2gradient || false
+      );
 
       setEdgeData(edges);
     } catch (err) {
@@ -303,7 +117,7 @@ export const useCannyDetection = (): UseCannyDetectionReturn => {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [openCVLoaded]);
 
   const clearEdges = useCallback(() => {
     setEdgeData(null);
@@ -314,6 +128,7 @@ export const useCannyDetection = (): UseCannyDetectionReturn => {
     edgeData,
     isProcessing,
     error,
+    openCVLoaded,
     detectEdges,
     calculateOptimalThresholds,
     clearEdges,

@@ -9,6 +9,7 @@ interface ImageCanvasProps {
   edgeData: ImageData | null;
   displayMode: DisplayMode;
   contourSettings: ContourSettings;
+  cannyOpacity: number;
 }
 
 export const ImageCanvas: React.FC<ImageCanvasProps> = ({
@@ -17,18 +18,19 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
   edgeData,
   displayMode,
   contourSettings,
+  cannyOpacity,
 }) => {
   const { canvasRef, renderImage } = useCanvasRenderer();
 
   React.useEffect(() => {
-    renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings);
-  }, [originalImageData, brightnessData, edgeData, displayMode, contourSettings, renderImage]);
+    renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity);
+  }, [originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, renderImage]);
 
   return (
     <div className="flex justify-center p-6">
       <canvas
         ref={canvasRef}
-        className="border border-slate-200 rounded-lg max-w-full"
+        className="border border-gray-200 rounded-lg max-w-full"
       />
     </div>
   );

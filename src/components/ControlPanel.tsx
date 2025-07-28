@@ -1,32 +1,15 @@
 import React from 'react';
 import { DisplayMode, DISPLAY_MODE_LABELS } from '../types/UITypes';
-import { ContourSettings } from '../types/ImageTypes';
 
 interface ControlPanelProps {
   displayMode: DisplayMode;
-  contourSettings: ContourSettings;
   onDisplayModeChange: (mode: DisplayMode) => void;
-  onContourSettingsChange: (settings: ContourSettings) => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   displayMode,
-  contourSettings,
   onDisplayModeChange,
-  onContourSettingsChange,
 }) => {
-  const handleLevelsChange = (levels: number) => {
-    onContourSettingsChange({ ...contourSettings, levels });
-  };
-
-
-  const handleTransparencyChange = (transparency: number) => {
-    onContourSettingsChange({ ...contourSettings, transparency });
-  };
-
-  const handleGaussianBlurChange = (gaussianBlur: number) => {
-    onContourSettingsChange({ ...contourSettings, gaussianBlur });
-  };
 
   const basicDisplayModes = [
     DisplayMode.COLOR_ONLY,
@@ -40,24 +23,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     DisplayMode.CANNY_EDGE_ONLY,
     DisplayMode.COLOR_WITH_CANNY,
     DisplayMode.CONTOUR_WITH_CANNY,
+    DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY,
     DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
   ];
 
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Display Settings</h2>
-      </div>
-        
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Display Settings</h2>
+      </div>        
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-3">
             Display Mode
           </label>
           
           {/* Basic Display Modes */}
           <div className="mb-4">
-            <div className="text-xs font-medium text-slate-500 mb-2">Basic Modes</div>
+            <div className="text-xs font-medium text-gray-500 mb-2">Basic Modes</div>
             <div className="space-y-2">
               {basicDisplayModes.map((mode) => (
                 <label key={mode} className="flex items-center">
@@ -67,9 +50,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     value={mode}
                     checked={displayMode === mode}
                     onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
-                    className="h-4 w-4 text-slate-900 focus:ring-slate-500 border-slate-300"
+                    className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
                   />
-                  <span className="ml-2 text-sm text-slate-700">
+                  <span className="ml-2 text-sm text-gray-700">
                     {DISPLAY_MODE_LABELS[mode]}
                   </span>
                 </label>
@@ -79,7 +62,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
           {/* Canny Edge Detection Modes */}
           <div>
-            <div className="text-xs font-medium text-slate-500 mb-2">Canny Edge Detection</div>
+            <div className="text-xs font-medium text-gray-500 mb-2">Canny Edge Detection</div>
             <div className="space-y-2">
               {cannyDisplayModes.map((mode) => (
                 <label key={mode} className="flex items-center">
@@ -89,9 +72,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     value={mode}
                     checked={displayMode === mode}
                     onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
-                    className="h-4 w-4 text-slate-900 focus:ring-slate-500 border-slate-300"
+                    className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
                   />
-                  <span className="ml-2 text-sm text-slate-700">
+                  <span className="ml-2 text-sm text-gray-700">
                     {DISPLAY_MODE_LABELS[mode]}
                   </span>
                 </label>
@@ -100,63 +83,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Brightness Levels: {contourSettings.levels}
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="64"
-            step="1"
-            value={contourSettings.levels}
-            onChange={(e) => handleLevelsChange(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
-          />
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>1</span>
-            <span>64</span>
-          </div>
-        </div>
-
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Opacity: {contourSettings.transparency}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            value={contourSettings.transparency}
-            onChange={(e) => handleTransparencyChange(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
-          />
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>0%</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Gaussian Blur: {contourSettings.gaussianBlur}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="0.5"
-            value={contourSettings.gaussianBlur}
-            onChange={(e) => handleGaussianBlurChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
-          />
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>0</span>
-            <span>10</span>
-          </div>
-        </div>
       </div>
     </div>
   );

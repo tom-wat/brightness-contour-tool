@@ -7,6 +7,7 @@ export enum DisplayMode {
   CANNY_EDGE_ONLY = 'CANNY_EDGE_ONLY',
   COLOR_WITH_CANNY = 'COLOR_WITH_CANNY',
   CONTOUR_WITH_CANNY = 'CONTOUR_WITH_CANNY',
+  GRAYSCALE_WITH_CONTOUR_AND_CANNY = 'GRAYSCALE_WITH_CONTOUR_AND_CANNY',
   COLOR_WITH_CONTOUR_AND_CANNY = 'COLOR_WITH_CONTOUR_AND_CANNY',
 }
 
@@ -35,6 +36,7 @@ export const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
   [DisplayMode.CANNY_EDGE_ONLY]: 'Canny Edges Only',
   [DisplayMode.COLOR_WITH_CANNY]: 'Original + Canny',
   [DisplayMode.CONTOUR_WITH_CANNY]: 'Contours + Canny',
+  [DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY]: 'Grayscale + Contours + Canny',
   [DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY]: 'Combined View',
 };
 

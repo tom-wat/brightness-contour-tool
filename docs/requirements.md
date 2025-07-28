@@ -288,35 +288,38 @@ enum DisplayMode {
 | メモリ使用量         | 512MB 以下 | 最大サイズ画像処理時         |
 | OpenCV.js 読み込み   | 10 秒以内  | 初回アクセス時               |
 
-## 8. 実装優先順位
+## 8. 実装優先順位・進捗状況
 
-### Phase 1: 基本機能（MVP）
+### ✅ Phase 1: 基本機能（MVP）- 完了
 
-1. 画像アップロード機能（useImageUpload）
-2. Canvas API による輝度解析（useBrightnessAnalysis）
-3. 基本的な等高線表示（useCanvasRenderer）
-4. シンプルな Canny エッジ検出（useCannyDetection）
-5. 基本表示モード（5 種類）
+1. ✅ 画像アップロード機能（useImageUpload）- ドラッグ&ドロップ対応
+2. ✅ Canvas API による輝度解析（useBrightnessAnalysis）
+3. ✅ 基本的な等高線表示（useCanvasRenderer）
+4. ✅ シンプルな Canny エッジ検出（useCannyDetection）- 独自実装
+5. ✅ 基本表示モード（5 種類）- COLOR_ONLY, GRAYSCALE_ONLY, CONTOUR_ONLY, etc.
 
-### Phase 2: 設定機能拡充
+### ✅ Phase 2: Cannyエッジ検出機能 - 完了
 
-1. 可変レイヤー分割
-2. 手動閾値調整機能
-3. ガウシアンブラー
-4. カラーパレット機能
-5. 設定保存・読み込み
+1. ✅ 独自Cannyエッジ検出アルゴリズム実装
+   - ガウシアンフィルター → Sobel勾配計算 → 非最大値抑制 → ヒステリシス閾値処理
+2. ✅ 手動閾値調整機能（CannyControlsコンポーネント）
+3. ✅ 自動閾値決定（Otsu 法）実装
+4. ✅ Canny表示モード4種類追加
+   - CANNY_EDGE_ONLY（黒背景対応）
+   - COLOR_WITH_CANNY, CONTOUR_WITH_CANNY, COLOR_WITH_CONTOUR_AND_CANNY
+5. ✅ UI改善（モード分離表示、ImageViewControlsコンポーネント準備）
 
-### Phase 3: 高精度処理
+### 🔄 Phase 3: 高精度処理・UI向上 - 次期実装予定
 
-1. OpenCV.js 統合
-2. 自動閾値決定（Otsu 法）
-3. エッジ後処理機能
-4. 高精度モード実装
-5. 複合表示モード
+1. 🔄 ズーム・パン機能（ImageViewControlsに実装予定）
+2. ⭕ OpenCV.js 統合（高精度モード）
+3. ⭕ エッジ後処理機能（細線化、短いエッジ除去、エッジ連結）  
+4. ⭕ 高精度モード実装
+5. ⭕ カラーパレット機能
 
-### Phase 4: ユーザビリティ向上
+### 📋 Phase 4: ユーザビリティ向上 - 将来実装
 
-1. ズーム・パン機能
-2. プリセット機能
-3. 画像保存機能
-4. パフォーマンス最適化
+1. ⭕ 画像保存機能（現在の表示状態でエクスポート）
+2. ⭕ プリセット機能（設定保存・読み込み）
+3. ⭕ パフォーマンス最適化
+4. ⭕ レスポンシブ対応強化
