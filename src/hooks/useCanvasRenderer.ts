@@ -7,6 +7,7 @@ interface UseCanvasRendererReturn {
   renderImage: (
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
+    edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings
   ) => void;
@@ -137,6 +138,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const renderImage = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
+    edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings
   ) => {
@@ -181,6 +183,41 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const grayscaleData = convertToGrayscale(baseImageData);
           const contourData = detectContours(brightnessData, contourSettings);
           finalImageData = combineImageData(grayscaleData, contourData);
+        }
+        break;
+
+      case DisplayMode.CANNY_EDGE_ONLY:
+        if (edgeData) {
+          // Create black background for edge visibility
+          const blackBackground = new ImageData(edgeData.width, edgeData.height);
+          for (let i = 0; i < blackBackground.data.length; i += 4) {
+            blackBackground.data[i] = 0;     // R
+            blackBackground.data[i + 1] = 0; // G
+            blackBackground.data[i + 2] = 0; // B
+            blackBackground.data[i + 3] = 255; // A
+          }
+          finalImageData = combineImageData(blackBackground, edgeData);
+        }
+        break;
+
+      case DisplayMode.COLOR_WITH_CANNY:
+        if (edgeData) {
+          finalImageData = combineImageData(baseImageData, edgeData);
+        }
+        break;
+
+      case DisplayMode.CONTOUR_WITH_CANNY:
+        if (brightnessData && edgeData) {
+          const contourData = detectContours(brightnessData, contourSettings);
+          finalImageData = combineImageData(contourData, edgeData);
+        }
+        break;
+
+      case DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY:
+        if (brightnessData && edgeData) {
+          const contourData = detectContours(brightnessData, contourSettings);
+          const colorWithContour = combineImageData(baseImageData, contourData);
+          finalImageData = combineImageData(colorWithContour, edgeData);
         }
         break;
 

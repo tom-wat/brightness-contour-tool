@@ -7,7 +7,6 @@ export interface BrightnessData {
 
 export interface ContourSettings {
   levels: number;
-  lineThickness: number;
   transparency: number;
   gaussianBlur: number;
 }

@@ -19,9 +19,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     onContourSettingsChange({ ...contourSettings, levels });
   };
 
-  const handleThicknessChange = (lineThickness: number) => {
-    onContourSettingsChange({ ...contourSettings, lineThickness });
-  };
 
   const handleTransparencyChange = (transparency: number) => {
     onContourSettingsChange({ ...contourSettings, transparency });
@@ -39,6 +36,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     DisplayMode.GRAYSCALE_WITH_CONTOUR,
   ];
 
+  const cannyDisplayModes = [
+    DisplayMode.CANNY_EDGE_ONLY,
+    DisplayMode.COLOR_WITH_CANNY,
+    DisplayMode.CONTOUR_WITH_CANNY,
+    DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
+  ];
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -50,22 +54,49 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <label className="block text-sm font-medium text-slate-700 mb-3">
             Display Mode
           </label>
-          <div className="space-y-2">
-            {basicDisplayModes.map((mode) => (
-              <label key={mode} className="flex items-center">
-                <input
-                  type="radio"
-                  name="displayMode"
-                  value={mode}
-                  checked={displayMode === mode}
-                  onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
-                  className="h-4 w-4 text-slate-900 focus:ring-slate-500 border-slate-300"
-                />
-                <span className="ml-2 text-sm text-slate-700">
-                  {DISPLAY_MODE_LABELS[mode]}
-                </span>
-              </label>
-            ))}
+          
+          {/* Basic Display Modes */}
+          <div className="mb-4">
+            <div className="text-xs font-medium text-slate-500 mb-2">Basic Modes</div>
+            <div className="space-y-2">
+              {basicDisplayModes.map((mode) => (
+                <label key={mode} className="flex items-center">
+                  <input
+                    type="radio"
+                    name="displayMode"
+                    value={mode}
+                    checked={displayMode === mode}
+                    onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
+                    className="h-4 w-4 text-slate-900 focus:ring-slate-500 border-slate-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-700">
+                    {DISPLAY_MODE_LABELS[mode]}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Canny Edge Detection Modes */}
+          <div>
+            <div className="text-xs font-medium text-slate-500 mb-2">Canny Edge Detection</div>
+            <div className="space-y-2">
+              {cannyDisplayModes.map((mode) => (
+                <label key={mode} className="flex items-center">
+                  <input
+                    type="radio"
+                    name="displayMode"
+                    value={mode}
+                    checked={displayMode === mode}
+                    onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
+                    className="h-4 w-4 text-slate-900 focus:ring-slate-500 border-slate-300"
+                  />
+                  <span className="ml-2 text-sm text-slate-700">
+                    {DISPLAY_MODE_LABELS[mode]}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -88,24 +119,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Line Thickness: {contourSettings.lineThickness}px
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="5"
-            step="1"
-            value={contourSettings.lineThickness}
-            onChange={(e) => handleThicknessChange(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
-          />
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>1px</span>
-            <span>5px</span>
-          </div>
-        </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
