@@ -200,8 +200,12 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = originalImageData.width;
-    canvas.height = originalImageData.height;
+    // Canvas サイズを設定
+    const imageWidth = originalImageData.width;
+    const imageHeight = originalImageData.height;
+    
+    canvas.width = imageWidth;
+    canvas.height = imageHeight;
 
     let finalImageData = originalImageData;
 

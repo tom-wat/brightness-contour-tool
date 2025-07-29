@@ -1,7 +1,38 @@
 // OpenCV.jsのグローバル型定義
+interface OpenCVMat {
+  delete(): void;
+  data: Uint8Array;
+  cols: number;
+  rows: number;
+}
+
+interface OpenCVSize {
+  width: number;
+  height: number;
+}
+
+interface OpenCV {
+  Mat: new (rows?: number, cols?: number, type?: number) => OpenCVMat;
+  Size: new (width: number, height: number) => OpenCVSize;
+  CV_8UC4: number;
+  COLOR_RGBA2GRAY: number;
+  COLOR_GRAY2RGBA: number;
+  MORPH_RECT: number;
+  MORPH_OPEN: number;
+  MORPH_CLOSE: number;
+  MORPH_ERODE: number;
+  MORPH_DILATE: number;
+  cvtColor(src: OpenCVMat, dst: OpenCVMat, code: number): void;
+  Canny(src: OpenCVMat, dst: OpenCVMat, threshold1: number, threshold2: number, apertureSize?: number, L2gradient?: boolean): void;
+  GaussianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: OpenCVSize, sigmaX: number, sigmaY: number): void;
+  morphologyEx(src: OpenCVMat, dst: OpenCVMat, op: number, kernel: OpenCVMat): void;
+  getStructuringElement(shape: number, ksize: OpenCVSize): OpenCVMat;
+  imshow(canvas: HTMLCanvasElement, mat: OpenCVMat): void;
+}
+
 declare global {
   interface Window {
-    cv: any;
+    cv: OpenCV;
   }
 }
 
@@ -80,7 +111,7 @@ export class OpenCVProcessor {
     });
   }
 
-  imageDataToMat(imageData: ImageData): any {
+  imageDataToMat(imageData: ImageData): OpenCVMat {
     if (!this.status.isLoaded) {
       throw new Error('OpenCV not loaded');
     }
@@ -91,7 +122,7 @@ export class OpenCVProcessor {
     return mat;
   }
 
-  matToImageData(mat: any): ImageData {
+  matToImageData(mat: OpenCVMat): ImageData {
     if (!this.status.isLoaded) {
       throw new Error('OpenCV not loaded');
     }

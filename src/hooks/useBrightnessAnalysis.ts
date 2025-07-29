@@ -21,7 +21,35 @@ export const useBrightnessAnalysis = (): UseBrightnessAnalysisReturn => {
     return 0.299 * r + 0.587 * g + 0.114 * b;
   };
 
-  const applyGaussianBlur = (imageData: ImageData, radius: number): ImageData => {
+  const createGaussianKernel = useCallback((radius: number): number[][] => {
+    const size = Math.ceil(radius * 2) * 2 + 1;
+    const kernel: number[][] = [];
+    const sigma = radius / 3;
+    const twoSigmaSquare = 2 * sigma * sigma;
+    let sum = 0;
+
+    for (let y = 0; y < size; y++) {
+      kernel[y] = [];
+      for (let x = 0; x < size; x++) {
+        const dx = x - Math.floor(size / 2);
+        const dy = y - Math.floor(size / 2);
+        const distance = dx * dx + dy * dy;
+        const value = Math.exp(-distance / twoSigmaSquare);
+        kernel[y]![x] = value;
+        sum += value;
+      }
+    }
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        kernel[y]![x]! /= sum;
+      }
+    }
+
+    return kernel;
+  }, []);
+
+  const applyGaussianBlur = useCallback((imageData: ImageData, radius: number): ImageData => {
     if (radius === 0) return imageData;
 
     const { width, height, data } = imageData;
@@ -62,35 +90,7 @@ export const useBrightnessAnalysis = (): UseBrightnessAnalysisReturn => {
     }
 
     return blurred;
-  };
-
-  const createGaussianKernel = (radius: number): number[][] => {
-    const size = Math.ceil(radius * 2) * 2 + 1;
-    const kernel: number[][] = [];
-    const sigma = radius / 3;
-    const twoSigmaSquare = 2 * sigma * sigma;
-    let sum = 0;
-
-    for (let y = 0; y < size; y++) {
-      kernel[y] = [];
-      for (let x = 0; x < size; x++) {
-        const dx = x - Math.floor(size / 2);
-        const dy = y - Math.floor(size / 2);
-        const distance = dx * dx + dy * dy;
-        const value = Math.exp(-distance / twoSigmaSquare);
-        kernel[y]![x] = value;
-        sum += value;
-      }
-    }
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        kernel[y]![x]! /= sum;
-      }
-    }
-
-    return kernel;
-  };
+  }, [createGaussianKernel]);
 
   const analyzeBrightness = useCallback(async (
     imageData: ImageData,
@@ -144,7 +144,7 @@ export const useBrightnessAnalysis = (): UseBrightnessAnalysisReturn => {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [applyGaussianBlur]);
 
   // 画像の簡易ハッシュ生成（サンプリングベース）
   const generateImageHash = (imageData: ImageData): string => {
