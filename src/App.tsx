@@ -11,6 +11,7 @@ import { useCannyDetection } from './hooks/useCannyDetection';
 import { useZoomPan } from './hooks/useZoomPan';
 import { useEdgeProcessing } from './hooks/useEdgeProcessing';
 import { useImageExport } from './hooks/useImageExport';
+import { SettingsStorage } from './hooks/useLocalStorage';
 import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
 import { CannyParams, DEFAULT_CANNY_PARAMS } from './types/CannyTypes';
 import { DisplayMode, DEFAULT_APP_SETTINGS } from './types/UITypes';
@@ -19,15 +20,25 @@ import { ExportSettings } from './hooks/useImageExport';
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>(DEFAULT_APP_SETTINGS.displayMode);
-  const [contourSettings, setContourSettings] = useState<ContourSettings>({
-    levels: DEFAULT_CONTOUR_LEVELS,
-    transparency: 80,
-    gaussianBlur: 0,
-  });
-  const [cannyParams, setCannyParams] = useState<CannyParams>(DEFAULT_CANNY_PARAMS);
-  const [cannyOpacity, setCannyOpacity] = useState(80);
-  const [edgeProcessingSettings, setEdgeProcessingSettings] = useState<EdgeProcessingSettings>(DEFAULT_EDGE_PROCESSING_SETTINGS);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => 
+    SettingsStorage.getDisplayMode(DEFAULT_APP_SETTINGS.displayMode)
+  );
+  const [contourSettings, setContourSettings] = useState<ContourSettings>(() => 
+    SettingsStorage.getContourSettings({
+      levels: DEFAULT_CONTOUR_LEVELS,
+      transparency: 80,
+      gaussianBlur: 0,
+    })
+  );
+  const [cannyParams, setCannyParams] = useState<CannyParams>(() => 
+    SettingsStorage.getCannyParams(DEFAULT_CANNY_PARAMS)
+  );
+  const [cannyOpacity, setCannyOpacity] = useState(() => 
+    SettingsStorage.getCannyOpacity(80)
+  );
+  const [edgeProcessingSettings, setEdgeProcessingSettings] = useState<EdgeProcessingSettings>(() => 
+    SettingsStorage.getEdgeProcessingSettings(DEFAULT_EDGE_PROCESSING_SETTINGS)
+  );
   const [processedEdgeData, setProcessedEdgeData] = useState<ImageData | null>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
@@ -86,6 +97,7 @@ function App() {
 
   const handleDisplayModeChange = useCallback((mode: DisplayMode) => {
     setDisplayMode(mode);
+    SettingsStorage.saveDisplayMode(mode);
     // Cannyエッジ検出モードが選択されている場合、エッジデータが必要
     const cannyModes = [
       DisplayMode.CANNY_EDGE_ONLY,
@@ -101,6 +113,7 @@ function App() {
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
     setContourSettings(settings);
+    SettingsStorage.saveContourSettings(settings);
     if (uploadedImage) {
       analyzeBrightness(uploadedImage.originalImageData, settings);
     }
@@ -108,6 +121,7 @@ function App() {
 
   const handleCannyParamsChange = useCallback((params: CannyParams) => {
     setCannyParams(params);
+    SettingsStorage.saveCannyParams(params);
     if (uploadedImage) {
       detectEdges(uploadedImage.originalImageData, params);
       // エッジデータが更新されるので、後処理データもリセット
@@ -117,10 +131,12 @@ function App() {
 
   const handleCannyOpacityChange = useCallback((opacity: number) => {
     setCannyOpacity(opacity);
+    SettingsStorage.saveCannyOpacity(opacity);
   }, []);
 
   const handleEdgeProcessingSettingsChange = useCallback((settings: EdgeProcessingSettings) => {
     setEdgeProcessingSettings(settings);
+    SettingsStorage.saveEdgeProcessingSettings(settings);
     
     // エッジ後処理を実行
     if (edgeData) {
@@ -142,6 +158,7 @@ function App() {
       const optimalThresholds = calculateOptimalThresholds(uploadedImage.originalImageData);
       const newParams = { ...cannyParams, ...optimalThresholds };
       setCannyParams(newParams);
+      SettingsStorage.saveCannyParams(newParams);
       detectEdges(uploadedImage.originalImageData, newParams);
       // エッジデータが更新されるので、後処理データもリセット
       setProcessedEdgeData(null);
