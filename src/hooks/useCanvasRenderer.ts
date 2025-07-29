@@ -10,13 +10,42 @@ interface UseCanvasRendererReturn {
     edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings,
-    cannyOpacity?: number
+    cannyOpacity?: number,
+    denoisedImageData?: ImageData | null,
+    noiseReductionOpacity?: number
   ) => void;
   clearCanvas: () => void;
 }
 
 export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // denoised画像から輝度データを生成するヘルパー関数
+  const createBrightnessDataFromDenoised = (denoisedImageData: ImageData): BrightnessData => {
+    const { width, height, data } = denoisedImageData;
+    const brightnessMap: number[][] = [];
+    
+    // denoised画像から輝度値を再計算して2次元配列に格納
+    for (let y = 0; y < height; y++) {
+      brightnessMap[y] = [];
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = (y * width + x) * 4;
+        const r = data[pixelIndex] ?? 0;
+        const g = data[pixelIndex + 1] ?? 0;
+        const b = data[pixelIndex + 2] ?? 0;
+        // 輝度計算（ITU-R BT.709標準）
+        const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+        brightnessMap[y]![x] = brightness;
+      }
+    }
+
+    return {
+      imageData: denoisedImageData,
+      brightnessMap,
+      width,
+      height
+    };
+  };
 
   const convertToGrayscale = (imageData: ImageData): ImageData => {
     const { width, height, data } = imageData;
@@ -186,13 +215,43 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return combined;
   };
 
+  const combineWithDenoising = (
+    base: ImageData,
+    denoised: ImageData,
+    opacity: number = 100
+  ): ImageData => {
+    const combined = new ImageData(base.width, base.height);
+    const alpha = opacity / 100;
+    
+    for (let i = 0; i < base.data.length; i += 4) {
+      const baseR = base.data[i]!;
+      const baseG = base.data[i + 1]!;
+      const baseB = base.data[i + 2]!;
+      const baseA = base.data[i + 3]!;
+
+      const denoisedR = denoised.data[i]!;
+      const denoisedG = denoised.data[i + 1]!;
+      const denoisedB = denoised.data[i + 2]!;
+      const denoisedA = denoised.data[i + 3]!;
+
+      combined.data[i] = baseR * (1 - alpha) + denoisedR * alpha;
+      combined.data[i + 1] = baseG * (1 - alpha) + denoisedG * alpha;
+      combined.data[i + 2] = baseB * (1 - alpha) + denoisedB * alpha;
+      combined.data[i + 3] = Math.max(baseA, denoisedA);
+    }
+
+    return combined;
+  };
+
   const renderImage = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
     edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings,
-    cannyOpacity: number = 100
+    cannyOpacity: number = 100,
+    denoisedImageData: ImageData | null = null,
+    noiseReductionOpacity: number = 100
   ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -283,6 +342,116 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const contourData = detectContours(brightnessData, contourSettings);
           const colorWithContour = combineImageData(baseImageData, contourData);
           finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
+        }
+        break;
+
+      // Noise Reduction Display Modes
+      case DisplayMode.DENOISED_ONLY:
+        if (denoisedImageData) {
+          finalImageData = denoisedImageData;
+        } else {
+          // ノイズリダクションが無効の場合は元画像を表示
+          finalImageData = baseImageData;
+        }
+        break;
+
+      case DisplayMode.DENOISED_GRAYSCALE_ONLY:
+        if (denoisedImageData) {
+          finalImageData = convertToGrayscale(denoisedImageData);
+        } else {
+          // ノイズリダクションが無効の場合はグレースケール元画像を表示
+          finalImageData = convertToGrayscale(baseImageData);
+        }
+        break;
+
+      case DisplayMode.DENOISED_CONTOUR_ONLY:
+        if (denoisedImageData && brightnessData) {
+          // ノイズ除去画像から輝度データを生成して等高線のみ表示
+          const denoisedBrightnessData = createBrightnessDataFromDenoised(denoisedImageData);
+          finalImageData = detectContours(denoisedBrightnessData, contourSettings);
+        } else if (brightnessData) {
+          // ノイズリダクションが無効の場合は通常の等高線のみ
+          finalImageData = detectContours(brightnessData, contourSettings);
+        }
+        break;
+
+
+      case DisplayMode.COLOR_WITH_DENOISED_CONTOUR:
+        if (denoisedImageData && brightnessData) {
+          // Apply noise reduction to the base image first
+          const denoisedBase = combineWithDenoising(baseImageData, denoisedImageData, noiseReductionOpacity);
+          // Create brightness data from denoised image for accurate contour detection
+          const denoisedBrightnessData = createBrightnessDataFromDenoised(denoisedImageData);
+          const contourData = detectContours(denoisedBrightnessData, contourSettings);
+          finalImageData = combineImageData(denoisedBase, contourData);
+        } else if (brightnessData) {
+          // ノイズリダクションが無効の場合は通常の等高線表示
+          const contourData = detectContours(brightnessData, contourSettings);
+          finalImageData = combineImageData(baseImageData, contourData);
+        }
+        break;
+
+      case DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR:
+        if (denoisedImageData && brightnessData) {
+          // Apply noise reduction to the base image first
+          const denoisedBase = combineWithDenoising(baseImageData, denoisedImageData, noiseReductionOpacity);
+          // Convert to grayscale
+          const grayscaleBase = convertToGrayscale(denoisedBase);
+          // Create brightness data from denoised image for accurate contour detection
+          const denoisedBrightnessData = createBrightnessDataFromDenoised(denoisedImageData);
+          const contourData = detectContours(denoisedBrightnessData, contourSettings);
+          finalImageData = combineImageData(grayscaleBase, contourData);
+        } else if (brightnessData) {
+          // ノイズリダクションが無効の場合はグレースケール通常等高線表示
+          const grayscaleBase = convertToGrayscale(baseImageData);
+          const contourData = detectContours(brightnessData, contourSettings);
+          finalImageData = combineImageData(grayscaleBase, contourData);
+        }
+        break;
+
+      case DisplayMode.DENOISED_WITH_CANNY:
+        if (denoisedImageData && edgeData) {
+          finalImageData = combineWithCannyEdges(denoisedImageData, edgeData, 'white', cannyOpacity);
+        } else if (edgeData) {
+          // ノイズリダクションが無効の場合は元画像+Cannyエッジ
+          finalImageData = combineWithCannyEdges(baseImageData, edgeData, 'white', cannyOpacity);
+        }
+        break;
+
+      case DisplayMode.ALL_WITH_DENOISING:
+        if (denoisedImageData && brightnessData && edgeData) {
+          // Apply noise reduction to the base image first
+          const denoisedBase = combineWithDenoising(baseImageData, denoisedImageData, noiseReductionOpacity);
+          // Create brightness data from denoised image for accurate contour detection
+          const denoisedBrightnessData = createBrightnessDataFromDenoised(denoisedImageData);
+          const contourData = detectContours(denoisedBrightnessData, contourSettings);
+          const denoisedWithContour = combineImageData(denoisedBase, contourData);
+          finalImageData = combineWithCannyEdges(denoisedWithContour, edgeData, 'white', cannyOpacity);
+        } else if (brightnessData && edgeData) {
+          // ノイズリダクションが無効の場合は通常の全機能合成
+          const contourData = detectContours(brightnessData, contourSettings);
+          const colorWithContour = combineImageData(baseImageData, contourData);
+          finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
+        }
+        break;
+
+      case DisplayMode.ALL_WITH_DENOISING_GRAYSCALE:
+        if (denoisedImageData && brightnessData && edgeData) {
+          // Apply noise reduction to the base image first
+          const denoisedBase = combineWithDenoising(baseImageData, denoisedImageData, noiseReductionOpacity);
+          // Convert to grayscale
+          const grayscaleBase = convertToGrayscale(denoisedBase);
+          // Create brightness data from denoised image for accurate contour detection
+          const denoisedBrightnessData = createBrightnessDataFromDenoised(denoisedImageData);
+          const contourData = detectContours(denoisedBrightnessData, contourSettings);
+          const denoisedWithContour = combineImageData(grayscaleBase, contourData);
+          finalImageData = combineWithCannyEdges(denoisedWithContour, edgeData, 'white', cannyOpacity);
+        } else if (brightnessData && edgeData) {
+          // ノイズリダクションが無効の場合はグレースケール全機能合成
+          const grayscaleBase = convertToGrayscale(baseImageData);
+          const contourData = detectContours(brightnessData, contourSettings);
+          const grayscaleWithContour = combineImageData(grayscaleBase, contourData);
+          finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
         }
         break;
 

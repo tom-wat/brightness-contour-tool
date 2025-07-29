@@ -4,6 +4,9 @@ interface OpenCVMat {
   data: Uint8Array;
   cols: number;
   rows: number;
+  clone(): OpenCVMat;
+  channels(): number;
+  copyTo(dst: OpenCVMat): void;
 }
 
 interface OpenCVSize {
@@ -11,23 +14,43 @@ interface OpenCVSize {
   height: number;
 }
 
+interface OpenCVPoint {
+  x: number;
+  y: number;
+  delete(): void;
+}
+
 interface OpenCV {
   Mat: new (rows?: number, cols?: number, type?: number) => OpenCVMat;
   Size: new (width: number, height: number) => OpenCVSize;
+  Point: new (x: number, y: number) => OpenCVPoint;
   CV_8UC4: number;
   COLOR_RGBA2GRAY: number;
   COLOR_GRAY2RGBA: number;
+  COLOR_RGB2RGBA: number;
   MORPH_RECT: number;
+  MORPH_ELLIPSE: number;
+  MORPH_CROSS: number;
   MORPH_OPEN: number;
   MORPH_CLOSE: number;
+  MORPH_GRADIENT: number;  
+  MORPH_TOPHAT: number;
+  MORPH_BLACKHAT: number;
   MORPH_ERODE: number;
   MORPH_DILATE: number;
+  BORDER_CONSTANT: number;
   cvtColor(src: OpenCVMat, dst: OpenCVMat, code: number): void;
   Canny(src: OpenCVMat, dst: OpenCVMat, threshold1: number, threshold2: number, apertureSize?: number, L2gradient?: boolean): void;
   GaussianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: OpenCVSize, sigmaX: number, sigmaY: number): void;
-  morphologyEx(src: OpenCVMat, dst: OpenCVMat, op: number, kernel: OpenCVMat): void;
+  morphologyEx(src: OpenCVMat, dst: OpenCVMat, op: number, kernel: OpenCVMat, anchor?: OpenCVPoint, iterations?: number, borderType?: number): void;
   getStructuringElement(shape: number, ksize: OpenCVSize): OpenCVMat;
   imshow(canvas: HTMLCanvasElement, mat: OpenCVMat): void;
+  matFromImageData(imageData: ImageData): OpenCVMat;
+  medianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: number): void;
+  bilateralFilter(src: OpenCVMat, dst: OpenCVMat, d: number, sigmaColor: number, sigmaSpace: number): void;
+  fastNlMeansDenoising(src: OpenCVMat, dst: OpenCVMat, h: number, templateWindowSize: number, searchWindowSize: number): void;
+  fastNlMeansDenoisingColored(src: OpenCVMat, dst: OpenCVMat, h: number, hColor: number, templateWindowSize: number, searchWindowSize: number): void;
+  copyTo?: (dst: OpenCVMat) => void;
 }
 
 declare global {

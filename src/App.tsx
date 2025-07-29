@@ -6,8 +6,10 @@ import { DisplaySettings } from './components/DisplaySettings';
 import { ContourControls } from './components/ContourControls';
 import { CannyControls } from './components/CannyControls';
 import { EdgeProcessingControls } from './components/EdgeProcessingControls';
+import { NoiseReductionControls } from './components/NoiseReductionControls';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
 import { useCannyDetection } from './hooks/useCannyDetection';
+import { useNoiseReduction } from './hooks/useNoiseReduction';
 import { useZoomPan } from './hooks/useZoomPan';
 import { useEdgeProcessing } from './hooks/useEdgeProcessing';
 import { useImageExport } from './hooks/useImageExport';
@@ -48,6 +50,7 @@ function App() {
   const { brightnessData, analyzeBrightness } = useBrightnessAnalysis();
   const { edgeData, detectEdges, calculateOptimalThresholds, openCVLoaded } = useCannyDetection();
   const { processEdges } = useEdgeProcessing();
+  const { settings: noiseReductionSettings, result: noiseReductionResult, processImage: processNoiseReduction, updateSettings: updateNoiseReductionSettings, clearResult: clearNoiseReductionResult } = useNoiseReduction();
   const { exportCurrentView } = useImageExport();
   
   // ズーム・パン機能
@@ -105,11 +108,29 @@ function App() {
       DisplayMode.CONTOUR_WITH_CANNY,
       DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY,
       DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
+      DisplayMode.DENOISED_WITH_CANNY,
+      DisplayMode.ALL_WITH_DENOISING,
+    ];
+    
+    const noiseReductionModes = [
+      DisplayMode.DENOISED_ONLY,
+      DisplayMode.DENOISED_GRAYSCALE_ONLY,
+      DisplayMode.DENOISED_CONTOUR_ONLY,
+      DisplayMode.COLOR_WITH_DENOISED_CONTOUR,
+      DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR,
+      DisplayMode.DENOISED_WITH_CANNY,
+      DisplayMode.ALL_WITH_DENOISING,
+      DisplayMode.ALL_WITH_DENOISING_GRAYSCALE,
     ];
     if (cannyModes.includes(mode) && uploadedImage && !edgeData) {
       detectEdges(uploadedImage.originalImageData, cannyParams);
     }
-  }, [uploadedImage, edgeData, cannyParams, detectEdges]);
+    
+    // ノイズ除去モードが選択されている場合、適用済み（enabled=true）の場合は処理を実行
+    if (noiseReductionModes.includes(mode) && uploadedImage && noiseReductionSettings.enabled && !noiseReductionResult.denoisedImageData) {
+      processNoiseReduction(uploadedImage.originalImageData);
+    }
+  }, [uploadedImage, edgeData, cannyParams, detectEdges, noiseReductionSettings.enabled, noiseReductionResult.denoisedImageData, processNoiseReduction]);
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
     setContourSettings(settings);
@@ -152,6 +173,27 @@ function App() {
       }, 0);
     }
   }, [edgeData, processEdges]);
+
+  const handleNoiseReductionSettingsChange = useCallback((settings: Partial<typeof noiseReductionSettings>) => {
+    console.log('Noise reduction settings changed:', settings);
+    updateNoiseReductionSettings(settings);
+    
+    // 設定変更時、画像が存在し、有効化されている場合は自動的に処理を実行
+    if (uploadedImage) {
+      // enabledがfalseに設定された場合は結果をクリア
+      if (settings.enabled === false) {
+        console.log('Disabling noise reduction');
+        clearNoiseReductionResult();
+        return;
+      }
+      
+      // enabled状態で設定が変更された場合、または今有効化された場合
+      if (settings.enabled === true || (noiseReductionSettings.enabled && settings.enabled !== false)) {
+        console.log('Auto-applying noise reduction');
+        processNoiseReduction(uploadedImage.originalImageData);
+      }
+    }
+  }, [uploadedImage, updateNoiseReductionSettings, processNoiseReduction, clearNoiseReductionResult, noiseReductionSettings.enabled]);
 
   const handleAutoDetectThresholds = useCallback(() => {
     if (uploadedImage) {
@@ -231,7 +273,7 @@ function App() {
         </main>
       ) : (
         <main>
-          <div className="flex h-[calc(100vh-73px)]">
+          <div className="flex h-[calc(100vh-87px)]">
             {/* Left Sidebar - Controls */}
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
               <div className="flex-1 overflow-y-auto">
@@ -246,6 +288,13 @@ function App() {
                   onCannyOpacityChange={handleCannyOpacityChange}
                   onAutoDetectThresholds={handleAutoDetectThresholds}
                   openCVLoaded={openCVLoaded}
+                />
+                <NoiseReductionControls
+                  settings={noiseReductionSettings}
+                  onSettingsChange={handleNoiseReductionSettingsChange}
+                  processing={noiseReductionResult.processing}
+                  processingTime={noiseReductionResult.processingTime}
+                  error={noiseReductionResult.error}
                 />
                 <EdgeProcessingControls
                   settings={edgeProcessingSettings}
@@ -277,6 +326,8 @@ function App() {
                   displayMode={displayMode}
                   contourSettings={contourSettings}
                   cannyOpacity={cannyOpacity}
+                  denoisedImageData={noiseReductionResult.denoisedImageData}
+                  noiseReductionOpacity={noiseReductionSettings.opacity * 100}
                   transform={getTransform()}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}

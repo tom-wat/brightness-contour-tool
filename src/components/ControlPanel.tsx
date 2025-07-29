@@ -27,6 +27,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
   ];
 
+  const noiseReductionDisplayModes = [
+    DisplayMode.DENOISED_ONLY,
+    DisplayMode.DENOISED_GRAYSCALE_ONLY,
+    DisplayMode.DENOISED_CONTOUR_ONLY,
+    DisplayMode.COLOR_WITH_DENOISED_CONTOUR,
+    DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR,
+    DisplayMode.DENOISED_WITH_CANNY,
+    DisplayMode.ALL_WITH_DENOISING,
+    DisplayMode.ALL_WITH_DENOISING_GRAYSCALE,
+  ];
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -38,49 +49,35 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             Display Mode
           </label>
           
-          {/* Basic Display Modes */}
-          <div className="mb-4">
-            <div className="text-xs font-medium text-gray-500 mb-2">Basic Modes</div>
-            <div className="space-y-2">
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            value={displayMode}
+            onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
+          >
+            <optgroup label="Basic Modes">
               {basicDisplayModes.map((mode) => (
-                <label key={mode} className="flex items-center">
-                  <input
-                    type="radio"
-                    name="displayMode"
-                    value={mode}
-                    checked={displayMode === mode}
-                    onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
-                    className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    {DISPLAY_MODE_LABELS[mode]}
-                  </span>
-                </label>
+                <option key={mode} value={mode}>
+                  {DISPLAY_MODE_LABELS[mode]}
+                </option>
               ))}
-            </div>
-          </div>
-
-          {/* Canny Edge Detection Modes */}
-          <div>
-            <div className="text-xs font-medium text-gray-500 mb-2">Canny Edge Detection</div>
-            <div className="space-y-2">
+            </optgroup>
+            
+            <optgroup label="Canny Edge Detection">
               {cannyDisplayModes.map((mode) => (
-                <label key={mode} className="flex items-center">
-                  <input
-                    type="radio"
-                    name="displayMode"
-                    value={mode}
-                    checked={displayMode === mode}
-                    onChange={(e) => onDisplayModeChange(e.target.value as DisplayMode)}
-                    className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    {DISPLAY_MODE_LABELS[mode]}
-                  </span>
-                </label>
+                <option key={mode} value={mode}>
+                  {DISPLAY_MODE_LABELS[mode]}
+                </option>
               ))}
-            </div>
-          </div>
+            </optgroup>
+            
+            <optgroup label="Noise Reduction">
+              {noiseReductionDisplayModes.map((mode) => (
+                <option key={mode} value={mode}>
+                  {DISPLAY_MODE_LABELS[mode]}
+                </option>
+              ))}
+            </optgroup>
+          </select>
         </div>
 
       </div>

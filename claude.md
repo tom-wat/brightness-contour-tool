@@ -20,17 +20,20 @@ src/
 ├── types/              # 型定義
 │   ├── ImageTypes.ts   # 画像・等高線関連型
 │   ├── CannyTypes.ts   # Cannyエッジ検出型
+│   ├── NoiseReductionTypes.ts  # ノイズ除去型
 │   └── UITypes.ts      # UI・表示モード型
 ├── components/         # Reactコンポーネント
 │   ├── ImageUploader.tsx      # 画像アップロード
 │   ├── ImageCanvas.tsx        # メイン描画キャンバス
 │   ├── ImageViewControls.tsx  # ズーム・パン操作UI
 │   ├── ControlPanel.tsx       # 等高線設定パネル
-│   └── CannyControls.tsx      # Cannyエッジ検出設定
+│   ├── CannyControls.tsx      # Cannyエッジ検出設定
+│   └── NoiseReductionControls.tsx  # ノイズ除去設定
 ├── hooks/              # カスタムフック
 │   ├── useImageUpload.ts       # 画像アップロード処理
 │   ├── useBrightnessAnalysis.ts # 輝度解析・等高線生成
 │   ├── useCannyDetection.ts    # Cannyエッジ検出
+│   ├── useNoiseReduction.ts    # ノイズ除去処理
 │   └── useCanvasRenderer.ts    # Canvas描画制御
 ├── App.tsx             # メインアプリコンポーネント
 └── main.tsx            # エントリーポイント
@@ -79,10 +82,11 @@ src/
 ```tsx
 App
 ├── ImageUploader          # 画像アップロード（ドラッグ&ドロップ）
-├── ImageViewControls      # ズーム・パン操作UI（将来実装）
+├── ImageViewControls      # ズーム・パン操作UI
 ├── ImageCanvas            # メイン描画キャンバス
-├── ControlPanel           # 等高線設定（Basic/Cannyモード分離）
-└── CannyControls          # Cannyエッジ検出専用設定
+├── ControlPanel           # 等高線設定
+├── CannyControls          # Cannyエッジ検出専用設定
+└── NoiseReductionControls # ノイズ除去専用設定（Phase 4）
 ```
 
 ### 実装済み表示モード（9種類）
@@ -102,6 +106,7 @@ App
 ### カスタムフック活用
 - `useBrightnessAnalysis`: 輝度データ計算・等高線生成
 - `useCannyDetection`: Cannyエッジ検出（独自実装）
+- `useNoiseReduction`: ノイズ除去処理（OpenCV.js統合）
 - `useCanvasRenderer`: Canvas描画制御・レイヤー合成
 - `useImageUpload`: 画像アップロード処理・検証
 
@@ -151,7 +156,26 @@ App
   - 画面全体スクロール無効化
   - 固定高さ制限（calc(100vh-73px)）
 
-### 🔄 Phase 4予定 (任意実装)
+### 🔄 Phase 4予定 (ノイズ除去機能)
+- [ ] **OpenCV.jsノイズ除去機能**
+  - メディアンフィルタ（塩胡椒ノイズ除去）
+  - バイラテラルフィルタ（エッジ保持ノイズ除去）
+  - Non-Local Means Denoising（高精度ノイズ除去）
+  - モルフォロジー演算（開閉処理）
+  - NoiseReductionControlsコンポーネント（フィルタ選択・パラメータ調整UI）
+- [ ] **ノイズ除去表示モード追加**
+  - `DENOISED_ONLY`: ノイズ除去画像のみ
+  - `COLOR_WITH_DENOISED_CONTOUR`: カラー画像＋ノイズ除去後等高線
+  - `DENOISED_WITH_CANNY`: ノイズ除去画像＋Cannyエッジ
+  - `ALL_WITH_DENOISING`: 全合成（ノイズ除去適用）
+- [ ] **実装詳細**
+  - useNoiseReductionカスタムフック（OpenCV.js統合）
+  - フィルタパラメータ設定（カーネルサイズ、強度、反復回数）
+  - プリセット機能（写真用、イラスト用、医療画像用）
+  - リアルタイムプレビュー機能
+  - ノイズ除去前後比較表示
+
+### 🔄 Phase 5予定 (任意実装)
 - [ ] プリセット管理システム
 - [ ] ウォーターマーク機能
 - [ ] バッチ処理機能

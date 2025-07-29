@@ -9,6 +9,15 @@ export enum DisplayMode {
   CONTOUR_WITH_CANNY = 'CONTOUR_WITH_CANNY',
   GRAYSCALE_WITH_CONTOUR_AND_CANNY = 'GRAYSCALE_WITH_CONTOUR_AND_CANNY',
   COLOR_WITH_CONTOUR_AND_CANNY = 'COLOR_WITH_CONTOUR_AND_CANNY',
+  // Noise Reduction Display Modes
+  DENOISED_ONLY = 'DENOISED_ONLY',
+  DENOISED_GRAYSCALE_ONLY = 'DENOISED_GRAYSCALE_ONLY',
+  DENOISED_CONTOUR_ONLY = 'DENOISED_CONTOUR_ONLY',
+  COLOR_WITH_DENOISED_CONTOUR = 'COLOR_WITH_DENOISED_CONTOUR',
+  GRAYSCALE_WITH_DENOISED_CONTOUR = 'GRAYSCALE_WITH_DENOISED_CONTOUR',
+  DENOISED_WITH_CANNY = 'DENOISED_WITH_CANNY',
+  ALL_WITH_DENOISING = 'ALL_WITH_DENOISING',
+  ALL_WITH_DENOISING_GRAYSCALE = 'ALL_WITH_DENOISING_GRAYSCALE',
 }
 
 export interface AppSettings {
@@ -38,6 +47,15 @@ export const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
   [DisplayMode.CONTOUR_WITH_CANNY]: 'Contours + Canny',
   [DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY]: 'Grayscale + Contours + Canny',
   [DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY]: 'Combined View',
+  // Noise Reduction Display Modes
+  [DisplayMode.DENOISED_ONLY]: 'Denoised Only',
+  [DisplayMode.DENOISED_GRAYSCALE_ONLY]: 'Denoised Grayscale',
+  [DisplayMode.DENOISED_CONTOUR_ONLY]: 'Denoised Contours Only',
+  [DisplayMode.COLOR_WITH_DENOISED_CONTOUR]: 'Original + Denoised Contours',
+  [DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR]: 'Grayscale + Denoised Contours',
+  [DisplayMode.DENOISED_WITH_CANNY]: 'Denoised + Canny',
+  [DisplayMode.ALL_WITH_DENOISING]: 'All Features + Denoising',
+  [DisplayMode.ALL_WITH_DENOISING_GRAYSCALE]: 'All Features + Denoising (Grayscale)',
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
