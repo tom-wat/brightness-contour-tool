@@ -36,6 +36,30 @@ export interface ProcessingStatus {
   error?: string;
 }
 
+export interface DisplayLayers {
+  original: boolean;
+  filtered: boolean;
+  contour: boolean;
+  filteredContour: boolean;
+  edge: boolean;
+}
+
+export interface DisplayOptions {
+  layers: DisplayLayers;
+  grayscaleMode: boolean;
+}
+
+export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
+  layers: {
+    original: true,
+    filtered: false,
+    contour: true,
+    filteredContour: false,
+    edge: false,
+  },
+  grayscaleMode: false,
+};
+
 export const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
   [DisplayMode.COLOR_ONLY]: 'Original Image',
   [DisplayMode.GRAYSCALE_ONLY]: 'Grayscale',

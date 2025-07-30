@@ -18,12 +18,9 @@ export const ContourControls: React.FC<ContourControlsProps> = ({
     onContourSettingsChange({ ...contourSettings, transparency });
   };
 
-  const handleGaussianBlurChange = (gaussianBlur: number) => {
-    onContourSettingsChange({ ...contourSettings, gaussianBlur });
-  };
 
   return (
-    <div className="p-6">
+    <div className="p-6 border-b border-gray-200">
       <h3 className="text-md font-semibold text-gray-900 mb-4">Contour Settings</h3>
       
       <div className="space-y-4">
@@ -65,24 +62,6 @@ export const ContourControls: React.FC<ContourControlsProps> = ({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Gaussian Blur: {contourSettings.gaussianBlur}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="0.5"
-            value={contourSettings.gaussianBlur}
-            onChange={(e) => handleGaussianBlurChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0</span>
-            <span>10</span>
-          </div>
-        </div>
       </div>
     </div>
   );

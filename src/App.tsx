@@ -6,30 +6,27 @@ import { DisplaySettings } from './components/DisplaySettings';
 import { ContourControls } from './components/ContourControls';
 import { CannyControls } from './components/CannyControls';
 import { EdgeProcessingControls } from './components/EdgeProcessingControls';
-import { NoiseReductionControls } from './components/NoiseReductionControls';
+import { ImageFilterControls } from './components/ImageFilterControls';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
 import { useCannyDetection } from './hooks/useCannyDetection';
-import { useNoiseReduction } from './hooks/useNoiseReduction';
+import { useImageFilter } from './hooks/useImageFilter';
 import { useZoomPan } from './hooks/useZoomPan';
 import { useEdgeProcessing } from './hooks/useEdgeProcessing';
 import { useImageExport } from './hooks/useImageExport';
 import { SettingsStorage } from './hooks/useLocalStorage';
 import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
 import { CannyParams, DEFAULT_CANNY_PARAMS } from './types/CannyTypes';
-import { DisplayMode, DEFAULT_APP_SETTINGS } from './types/UITypes';
+import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from './types/UITypes';
 import { EdgeProcessingSettings, DEFAULT_EDGE_PROCESSING_SETTINGS } from './types/EdgeProcessingTypes';
 import { ExportSettings } from './hooks/useImageExport';
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => 
-    SettingsStorage.getDisplayMode(DEFAULT_APP_SETTINGS.displayMode)
-  );
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(DEFAULT_DISPLAY_OPTIONS);
   const [contourSettings, setContourSettings] = useState<ContourSettings>(() => 
     SettingsStorage.getContourSettings({
       levels: DEFAULT_CONTOUR_LEVELS,
       transparency: 80,
-      gaussianBlur: 0,
     })
   );
   const [cannyParams, setCannyParams] = useState<CannyParams>(() => 
@@ -47,10 +44,10 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const { brightnessData, analyzeBrightness } = useBrightnessAnalysis();
-  const { edgeData, detectEdges, calculateOptimalThresholds, openCVLoaded } = useCannyDetection();
+  const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
+  const { edgeData, detectEdges, calculateOptimalThresholds, openCVLoaded, clearEdges } = useCannyDetection();
   const { processEdges } = useEdgeProcessing();
-  const { settings: noiseReductionSettings, result: noiseReductionResult, processImage: processNoiseReduction, updateSettings: updateNoiseReductionSettings, clearResult: clearNoiseReductionResult } = useNoiseReduction();
+  const { settings: imageFilterSettings, result: imageFilterResult, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
   const { exportCurrentView } = useImageExport();
   
   // ズーム・パン機能
@@ -73,7 +70,19 @@ function App() {
   );
 
   const handleImageUpload = useCallback((result: ImageUploadResult) => {
+    // 新しい画像を設定
     setUploadedImage(result);
+    
+    // すべての処理結果をリセット
+    clearAnalysis(); // 輝度解析結果をクリア
+    clearEdges(); // エッジ検出結果をクリア
+    clearImageFilterResult(); // 画像フィルタ結果をクリア
+    setProcessedEdgeData(null); // エッジ後処理データをクリア
+    
+    // 表示設定をデフォルトにリセット（新しい画像では基本設定から開始）
+    setDisplayOptions(DEFAULT_DISPLAY_OPTIONS);
+    
+    // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
     detectEdges(result.originalImageData, cannyParams);
     
@@ -81,7 +90,7 @@ function App() {
     resetZoom();
     // 自動フィット有効化
     setShouldAutoFit(true);
-  }, [analyzeBrightness, contourSettings, detectEdges, cannyParams, resetZoom]);
+  }, [analyzeBrightness, contourSettings, detectEdges, cannyParams, resetZoom, clearAnalysis, clearEdges, clearImageFilterResult]);
 
   const handleContainerResize = useCallback((width: number, height: number) => {
     // コンテナサイズを保存
@@ -98,39 +107,6 @@ function App() {
     }
   }, [shouldAutoFit, uploadedImage, fitToScreen]);
 
-  const handleDisplayModeChange = useCallback((mode: DisplayMode) => {
-    setDisplayMode(mode);
-    SettingsStorage.saveDisplayMode(mode);
-    // Cannyエッジ検出モードが選択されている場合、エッジデータが必要
-    const cannyModes = [
-      DisplayMode.CANNY_EDGE_ONLY,
-      DisplayMode.COLOR_WITH_CANNY,
-      DisplayMode.CONTOUR_WITH_CANNY,
-      DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY,
-      DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
-      DisplayMode.DENOISED_WITH_CANNY,
-      DisplayMode.ALL_WITH_DENOISING,
-    ];
-    
-    const noiseReductionModes = [
-      DisplayMode.DENOISED_ONLY,
-      DisplayMode.DENOISED_GRAYSCALE_ONLY,
-      DisplayMode.DENOISED_CONTOUR_ONLY,
-      DisplayMode.COLOR_WITH_DENOISED_CONTOUR,
-      DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR,
-      DisplayMode.DENOISED_WITH_CANNY,
-      DisplayMode.ALL_WITH_DENOISING,
-      DisplayMode.ALL_WITH_DENOISING_GRAYSCALE,
-    ];
-    if (cannyModes.includes(mode) && uploadedImage && !edgeData) {
-      detectEdges(uploadedImage.originalImageData, cannyParams);
-    }
-    
-    // ノイズ除去モードが選択されている場合、適用済み（enabled=true）の場合は処理を実行
-    if (noiseReductionModes.includes(mode) && uploadedImage && noiseReductionSettings.enabled && !noiseReductionResult.denoisedImageData) {
-      processNoiseReduction(uploadedImage.originalImageData);
-    }
-  }, [uploadedImage, edgeData, cannyParams, detectEdges, noiseReductionSettings.enabled, noiseReductionResult.denoisedImageData, processNoiseReduction]);
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
     setContourSettings(settings);
@@ -174,26 +150,23 @@ function App() {
     }
   }, [edgeData, processEdges]);
 
-  const handleNoiseReductionSettingsChange = useCallback((settings: Partial<typeof noiseReductionSettings>) => {
-    console.log('Noise reduction settings changed:', settings);
-    updateNoiseReductionSettings(settings);
+  const handleImageFilterSettingsChange = useCallback((settings: Partial<typeof imageFilterSettings>) => {
+    console.log('Image filter settings changed:', settings);
+    updateImageFilterSettings(settings);
     
-    // 設定変更時、画像が存在し、有効化されている場合は自動的に処理を実行
-    if (uploadedImage) {
-      // enabledがfalseに設定された場合は結果をクリア
-      if (settings.enabled === false) {
-        console.log('Disabling noise reduction');
-        clearNoiseReductionResult();
-        return;
-      }
-      
-      // enabled状態で設定が変更された場合、または今有効化された場合
-      if (settings.enabled === true || (noiseReductionSettings.enabled && settings.enabled !== false)) {
-        console.log('Auto-applying noise reduction');
-        processNoiseReduction(uploadedImage.originalImageData);
-      }
+    // enabledがfalseに設定された場合は結果をクリア
+    if (settings.enabled === false) {
+      console.log('Disabling image filter');
+      clearImageFilterResult();
     }
-  }, [uploadedImage, updateNoiseReductionSettings, processNoiseReduction, clearNoiseReductionResult, noiseReductionSettings.enabled]);
+  }, [updateImageFilterSettings, clearImageFilterResult]);
+
+  const handleApplyImageFilter = useCallback(() => {
+    if (uploadedImage && imageFilterSettings.enabled && imageFilterSettings.method !== 'none') {
+      console.log('Manually applying image filter');
+      processImageFilter(uploadedImage.originalImageData);
+    }
+  }, [uploadedImage, imageFilterSettings.enabled, imageFilterSettings.method, processImageFilter]);
 
   const handleAutoDetectThresholds = useCallback(() => {
     if (uploadedImage) {
@@ -215,7 +188,7 @@ function App() {
     try {
       const metadata = {
         timestamp: new Date().toISOString(),
-        displayMode,
+        displayOptions,
         contourSettings,
         cannyParams: edgeData ? cannyParams : undefined,
         edgeProcessingSettings: processedEdgeData ? edgeProcessingSettings : undefined,
@@ -239,7 +212,7 @@ function App() {
     }
   }, [
     uploadedImage,
-    displayMode,
+    displayOptions,
     contourSettings,
     cannyParams,
     edgeProcessingSettings,
@@ -281,6 +254,13 @@ function App() {
                   contourSettings={contourSettings}
                   onContourSettingsChange={handleContourSettingsChange}
                 />
+                <ImageFilterControls
+                  settings={imageFilterSettings}
+                  onSettingsChange={handleImageFilterSettingsChange}
+                  processing={imageFilterResult.processing}
+                  error={imageFilterResult.error}
+                  onApplyImageFilter={handleApplyImageFilter}
+                />
                 <CannyControls
                   cannyParams={cannyParams}
                   cannyOpacity={cannyOpacity}
@@ -288,13 +268,6 @@ function App() {
                   onCannyOpacityChange={handleCannyOpacityChange}
                   onAutoDetectThresholds={handleAutoDetectThresholds}
                   openCVLoaded={openCVLoaded}
-                />
-                <NoiseReductionControls
-                  settings={noiseReductionSettings}
-                  onSettingsChange={handleNoiseReductionSettingsChange}
-                  processing={noiseReductionResult.processing}
-                  processingTime={noiseReductionResult.processingTime}
-                  error={noiseReductionResult.error}
                 />
                 <EdgeProcessingControls
                   settings={edgeProcessingSettings}
@@ -323,11 +296,11 @@ function App() {
                   originalImageData={uploadedImage.originalImageData}
                   brightnessData={brightnessData}
                   edgeData={processedEdgeData || edgeData}
-                  displayMode={displayMode}
+                  displayOptions={displayOptions}
                   contourSettings={contourSettings}
                   cannyOpacity={cannyOpacity}
-                  denoisedImageData={noiseReductionResult.denoisedImageData}
-                  noiseReductionOpacity={noiseReductionSettings.opacity * 100}
+                  filteredImageData={imageFilterResult.filteredImageData}
+                  imageFilterOpacity={imageFilterSettings.opacity * 100}
                   transform={getTransform()}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -339,10 +312,14 @@ function App() {
 
             {/* Right Sidebar - Display Settings */}
             <DisplaySettings
-              displayMode={displayMode}
-              onDisplayModeChange={handleDisplayModeChange}
+              displayOptions={displayOptions}
+              onDisplayOptionsChange={setDisplayOptions}
               onExport={handleExport}
               isExporting={isExporting}
+              hasFiltered={!!imageFilterResult.filteredImageData}
+              hasContour={!!brightnessData}
+              hasFilteredContour={!!(imageFilterResult.filteredImageData && brightnessData)}
+              hasEdge={!!(processedEdgeData || edgeData)}
             />
           </div>
         </main>

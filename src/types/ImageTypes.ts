@@ -1,6 +1,7 @@
 export interface BrightnessData {
   imageData: ImageData;
   brightnessMap: number[][];
+  levels: number[];
   width: number;
   height: number;
 }
@@ -8,7 +9,6 @@ export interface BrightnessData {
 export interface ContourSettings {
   levels: number;
   transparency: number;
-  gaussianBlur: number;
 }
 
 export interface ImageUploadResult {

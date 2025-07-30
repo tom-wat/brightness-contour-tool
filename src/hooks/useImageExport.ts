@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { DisplayMode } from '../types/UITypes';
+import { DisplayMode, DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from '../types/UITypes';
 import { ContourSettings } from '../types/ImageTypes';
 import { CannyParams } from '../types/CannyTypes';
 import { EdgeProcessingSettings } from '../types/EdgeProcessingTypes';
@@ -13,7 +13,8 @@ export interface ExportSettings {
 
 export interface ExportMetadata {
   timestamp: string;
-  displayMode: DisplayMode;
+  displayMode?: DisplayMode; // 後方互換性のため残しておく
+  displayOptions?: DisplayOptions; // 新しい表示設定
   contourSettings: ContourSettings;
   cannyParams?: CannyParams;
   edgeProcessingSettings?: EdgeProcessingSettings;
@@ -27,7 +28,7 @@ export interface ExportMetadata {
 export const useImageExport = () => {
   
   const generateFilename = useCallback((
-    displayMode: DisplayMode,
+    displayOptions: DisplayOptions | DisplayMode,
     format: string,
     customName?: string
   ): string => {
@@ -36,7 +37,19 @@ export const useImageExport = () => {
     }
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-    const modeShort = displayMode.replace(/_/g, '-').toLowerCase();
+    
+    // 新しいDisplayOptionsの場合
+    if (typeof displayOptions === 'object' && 'layers' in displayOptions) {
+      const activeLayers = Object.entries(displayOptions.layers)
+        .filter(([, active]) => active)
+        .map(([layer]) => layer)
+        .join('-');
+      const grayscaleMode = displayOptions.grayscaleMode ? '-grayscale' : '';
+      return `brightness-contour-${activeLayers}${grayscaleMode}-${timestamp}.${format}`;
+    }
+    
+    // 従来のDisplayModeの場合（後方互換性）
+    const modeShort = (displayOptions as DisplayMode).replace(/_/g, '-').toLowerCase();
     return `brightness-contour-${modeShort}-${timestamp}.${format}`;
   }, []);
 
@@ -64,7 +77,7 @@ export const useImageExport = () => {
           const link = document.createElement('a');
           link.href = url;
           link.download = filename || generateFilename(
-            metadata?.displayMode || DisplayMode.COLOR_ONLY,
+            metadata?.displayOptions || metadata?.displayMode || DEFAULT_DISPLAY_OPTIONS,
             format
           );
 

@@ -27,7 +27,7 @@ export const CannyControls: React.FC<CannyControlsProps> = ({
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 border-b border-gray-200">
       <h3 className="text-md font-semibold text-gray-900 mb-4">Canny Edge Detection</h3>
       
       <div className="space-y-4">

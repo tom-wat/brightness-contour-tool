@@ -1,17 +1,18 @@
 import React, { useRef, useEffect, forwardRef } from 'react';
 import { useCanvasRenderer } from '../hooks/useCanvasRenderer';
 import { BrightnessData, ContourSettings } from '../types/ImageTypes';
-import { DisplayMode } from '../types/UITypes';
+import { DisplayMode, DisplayOptions } from '../types/UITypes';
 
 interface ImageCanvasProps {
   originalImageData: ImageData;
   brightnessData: BrightnessData | null;
   edgeData: ImageData | null;
-  displayMode: DisplayMode;
+  displayMode?: DisplayMode;
+  displayOptions?: DisplayOptions;
   contourSettings: ContourSettings;
   cannyOpacity: number;
-  denoisedImageData?: ImageData | null;
-  noiseReductionOpacity?: number;
+  filteredImageData?: ImageData | null;
+  imageFilterOpacity?: number;
   transform?: string;
   onMouseDown?: (e: React.MouseEvent) => void;
   onMouseMove?: (e: React.MouseEvent) => void;
@@ -24,17 +25,18 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   brightnessData,
   edgeData,
   displayMode,
+  displayOptions,
   contourSettings,
   cannyOpacity,
-  denoisedImageData,
-  noiseReductionOpacity = 100,
+  filteredImageData,
+  imageFilterOpacity = 100,
   transform,
   onMouseDown,
   onMouseMove,
   onMouseUp,
   onContainerResize,
 }, ref) => {
-  const { canvasRef, renderImage } = useCanvasRenderer();
+  const { canvasRef, renderImage, renderWithLayers } = useCanvasRenderer();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 外部からのrefと内部のrefを同期
@@ -45,8 +47,23 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   }, [ref, canvasRef]);
 
   useEffect(() => {
-    renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, denoisedImageData, noiseReductionOpacity);
-  }, [originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, denoisedImageData, noiseReductionOpacity, renderImage]);
+    if (displayOptions) {
+      // 新しいレイヤーベースの表示
+      renderWithLayers(
+        originalImageData, 
+        brightnessData, 
+        edgeData, 
+        filteredImageData || null, 
+        displayOptions, 
+        contourSettings, 
+        cannyOpacity, 
+        imageFilterOpacity
+      );
+    } else if (displayMode) {
+      // 従来のdisplayModeベースの表示（後方互換性）
+      renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity);
+    }
+  }, [originalImageData, brightnessData, edgeData, displayMode, displayOptions, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity, renderImage, renderWithLayers]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {
@@ -76,7 +93,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
         ref={containerRef}
         className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200"
         style={{ 
-          height: 'min(70vh, 800px)', 
+          height: 'min(78vh, 800px)', 
           minHeight: '400px',
           width: '100%',
           maxWidth: '1200px'
