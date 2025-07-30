@@ -162,7 +162,7 @@ function App() {
   }, [updateImageFilterSettings, clearImageFilterResult]);
 
   const handleApplyImageFilter = useCallback(() => {
-    if (uploadedImage && imageFilterSettings.enabled && imageFilterSettings.method !== 'none') {
+    if (uploadedImage && imageFilterSettings.enabled) {
       console.log('Manually applying image filter');
       processImageFilter(uploadedImage.originalImageData);
     }
@@ -316,9 +316,7 @@ function App() {
               onDisplayOptionsChange={setDisplayOptions}
               onExport={handleExport}
               isExporting={isExporting}
-              hasFiltered={!!imageFilterResult.filteredImageData}
               hasContour={!!brightnessData}
-              hasFilteredContour={!!(imageFilterResult.filteredImageData && brightnessData)}
               hasEdge={!!(processedEdgeData || edgeData)}
             />
           </div>

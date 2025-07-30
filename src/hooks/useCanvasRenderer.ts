@@ -679,11 +679,19 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     }
 
     // 2. Filtered Layer
-    if (displayOptions.layers.filtered && filteredImageData) {
-      const filteredToUse = displayOptions.grayscaleMode ? convertToGrayscale(filteredImageData) : filteredImageData;
-      baseImageData = displayOptions.layers.original ? 
-        combineWithFiltering(baseImageData, filteredToUse, imageFilterOpacity) : 
-        filteredToUse;
+    if (displayOptions.layers.filtered) {
+      if (filteredImageData) {
+        const filteredToUse = displayOptions.grayscaleMode ? convertToGrayscale(filteredImageData) : filteredImageData;
+        baseImageData = displayOptions.layers.original ? 
+          combineWithFiltering(baseImageData, filteredToUse, imageFilterOpacity) : 
+          filteredToUse;
+      } else {
+        // フィルター画像がない場合は元画像を表示
+        const originalToUse = displayOptions.grayscaleMode ? convertToGrayscale(originalImageData) : originalImageData;
+        if (!displayOptions.layers.original) {
+          baseImageData = originalToUse;
+        }
+      }
     }
 
     // 3. Contour Layer (Original image contour)
@@ -699,17 +707,28 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     }
 
     // 4. Filtered Contour Layer (Filtered image contour)
-    if (displayOptions.layers.filteredContour && filteredImageData && brightnessData) {
-      // フィルタリングされた画像の輝度データを使用
-      const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-      
-      const filteredContourData = hasBaseImage ? 
-        detectContours(filteredBrightnessData, contourSettings) :
-        detectContoursTransparent(filteredBrightnessData, contourSettings);
-      
-      baseImageData = hasBaseImage ? 
-        combineImageData(baseImageData, filteredContourData) :
-        combineImageDataTransparent(baseImageData, filteredContourData);
+    if (displayOptions.layers.filteredContour && brightnessData) {
+      if (filteredImageData) {
+        // フィルタリングされた画像の輝度データを使用
+        const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
+        
+        const filteredContourData = hasBaseImage ? 
+          detectContours(filteredBrightnessData, contourSettings) :
+          detectContoursTransparent(filteredBrightnessData, contourSettings);
+        
+        baseImageData = hasBaseImage ? 
+          combineImageData(baseImageData, filteredContourData) :
+          combineImageDataTransparent(baseImageData, filteredContourData);
+      } else {
+        // フィルター画像がない場合は元画像のcontourを表示
+        const contourData = hasBaseImage ? 
+          detectContours(brightnessData, contourSettings) :
+          detectContoursTransparent(brightnessData, contourSettings);
+        
+        baseImageData = hasBaseImage ? 
+          combineImageData(baseImageData, contourData) :
+          combineImageDataTransparent(baseImageData, contourData);
+      }
     }
 
     // 5. Edge Layer

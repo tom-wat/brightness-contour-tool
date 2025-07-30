@@ -8,9 +8,7 @@ interface DisplaySettingsProps {
   onDisplayOptionsChange: (options: DisplayOptions) => void;
   onExport: (settings: ExportSettings) => Promise<void>;
   isExporting?: boolean;
-  hasFiltered?: boolean;
   hasContour?: boolean;
-  hasFilteredContour?: boolean;
   hasEdge?: boolean;
 }
 
@@ -19,9 +17,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
   onDisplayOptionsChange,
   onExport,
   isExporting,
-  hasFiltered = false,
   hasContour = false,
-  hasFilteredContour = false,
   hasEdge = false,
 }) => {
   const handleLayerToggle = (layer: keyof typeof displayOptions.layers) => {
@@ -69,19 +65,18 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
 
             {/* Filtered Layer */}
             <div className="flex items-center justify-between">
-              <label className={`text-sm font-medium ${hasFiltered ? 'text-gray-700' : 'text-gray-400'}`}>
+              <label className="text-sm font-medium text-gray-700">
                 Filtered
               </label>
               <button
                 onClick={() => handleLayerToggle('filtered')}
-                disabled={!hasFiltered}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  displayOptions.layers.filtered && hasFiltered ? 'bg-blue-600' : 'bg-gray-200'
-                } ${!hasFiltered ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  displayOptions.layers.filtered ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    displayOptions.layers.filtered && hasFiltered ? 'translate-x-6' : 'translate-x-1'
+                    displayOptions.layers.filtered ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -109,19 +104,18 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
 
             {/* Filtered Contour Layer */}
             <div className="flex items-center justify-between">
-              <label className={`text-sm font-medium ${hasFilteredContour ? 'text-gray-700' : 'text-gray-400'}`}>
+              <label className="text-sm font-medium text-gray-700">
                 Filtered Contour
               </label>
               <button
                 onClick={() => handleLayerToggle('filteredContour')}
-                disabled={!hasFilteredContour}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  displayOptions.layers.filteredContour && hasFilteredContour ? 'bg-blue-600' : 'bg-gray-200'
-                } ${!hasFilteredContour ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  displayOptions.layers.filteredContour ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    displayOptions.layers.filteredContour && hasFilteredContour ? 'translate-x-6' : 'translate-x-1'
+                    displayOptions.layers.filteredContour ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>

@@ -41,10 +41,10 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
     );
   };
   const handleMethodChange = (method: ImageFilterMethod) => {
-    // methodの変更時、'none'以外の場合は自動的に有効化
+    // methodの変更時は自動的に有効化
     onSettingsChange({ 
       method, 
-      enabled: method !== 'none' 
+      enabled: true 
     });
   };
 
@@ -94,7 +94,7 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
       <div>
         <button
           onClick={onApplyImageFilter}
-          disabled={processing || settings.method === 'none'}
+          disabled={processing}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
         >
           {processing ? 'Processing...' : 'Apply Image Filter'}
@@ -132,7 +132,6 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
             onChange={(e) => handleMethodChange(e.target.value as ImageFilterMethod)}
             disabled={processing}
           >
-            <option value="none">Disabled</option>
             <option value="gaussian">Gaussian Blur</option>
             <option value="median">Median Filter</option>
           </select>

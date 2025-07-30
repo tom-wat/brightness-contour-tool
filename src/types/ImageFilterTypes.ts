@@ -1,5 +1,4 @@
 export type ImageFilterMethod = 
-  | 'none'
   | 'median'
   | 'gaussian';
 
@@ -35,8 +34,8 @@ export interface ImageFilterResult {
 }
 
 export const DEFAULT_IMAGE_FILTER_SETTINGS: ImageFilterSettings = {
-  method: 'none',
-  enabled: false,
+  method: 'gaussian',
+  enabled: true,
   opacity: 1.0,
   medianParams: {
     kernelSize: 5

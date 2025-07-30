@@ -129,7 +129,7 @@ export const useImageFilter = () => {
       return;
     }
 
-    if (!settings.enabled || settings.method === 'none') {
+    if (!settings.enabled) {
       setResult({
         filteredImageData: null,
         processing: false,
