@@ -54,29 +54,11 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   displayOptions.layers.original ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
+                aria-label="Toggle original layer"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                     displayOptions.layers.original ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Filtered Layer */}
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">
-                Filtered
-              </label>
-              <button
-                onClick={() => handleLayerToggle('filtered')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  displayOptions.layers.filtered ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    displayOptions.layers.filtered ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -93,10 +75,31 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   displayOptions.layers.contour && hasContour ? 'bg-blue-600' : 'bg-gray-200'
                 } ${!hasContour ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="Toggle contour layer"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                     displayOptions.layers.contour && hasContour ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Filtered Layer */}
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">
+                Filtered
+              </label>
+              <button
+                onClick={() => handleLayerToggle('filtered')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  displayOptions.layers.filtered ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-label="Toggle filtered layer"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    displayOptions.layers.filtered ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -112,6 +115,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   displayOptions.layers.filteredContour ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
+                aria-label="Toggle filtered contour layer"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -132,6 +136,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   displayOptions.layers.edge && hasEdge ? 'bg-blue-600' : 'bg-gray-200'
                 } ${!hasEdge ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="Toggle edge layer"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -151,6 +156,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   displayOptions.grayscaleMode ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
+                aria-label="Toggle grayscale mode"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${

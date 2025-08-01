@@ -22,7 +22,9 @@ import { ExportSettings } from './hooks/useImageExport';
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
-  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(DEFAULT_DISPLAY_OPTIONS);
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(() =>
+    SettingsStorage.getDisplayOptions(DEFAULT_DISPLAY_OPTIONS)
+  );
   const [contourSettings, setContourSettings] = useState<ContourSettings>(() => 
     SettingsStorage.getContourSettings({
       levels: DEFAULT_CONTOUR_LEVELS,
@@ -79,9 +81,6 @@ function App() {
     clearImageFilterResult(); // 画像フィルタ結果をクリア
     setProcessedEdgeData(null); // エッジ後処理データをクリア
     
-    // 表示設定をデフォルトにリセット（新しい画像では基本設定から開始）
-    setDisplayOptions(DEFAULT_DISPLAY_OPTIONS);
-    
     // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
     detectEdges(result.originalImageData, cannyParams);
@@ -106,6 +105,11 @@ function App() {
       }, 50);
     }
   }, [shouldAutoFit, uploadedImage, fitToScreen]);
+
+  const handleDisplayOptionsChange = useCallback((options: DisplayOptions) => {
+    setDisplayOptions(options);
+    SettingsStorage.saveDisplayOptions(options);
+  }, []);
 
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
@@ -166,7 +170,7 @@ function App() {
       console.log('Manually applying image filter');
       processImageFilter(uploadedImage.originalImageData);
     }
-  }, [uploadedImage, imageFilterSettings.enabled, imageFilterSettings.method, processImageFilter]);
+  }, [uploadedImage, imageFilterSettings.enabled, processImageFilter]);
 
   const handleAutoDetectThresholds = useCallback(() => {
     if (uploadedImage) {
@@ -313,7 +317,7 @@ function App() {
             {/* Right Sidebar - Display Settings */}
             <DisplaySettings
               displayOptions={displayOptions}
-              onDisplayOptionsChange={setDisplayOptions}
+              onDisplayOptionsChange={handleDisplayOptionsChange}
               onExport={handleExport}
               isExporting={isExporting}
               hasContour={!!brightnessData}

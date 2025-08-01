@@ -13,8 +13,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const basicDisplayModes = [
     DisplayMode.COLOR_ONLY,
-    DisplayMode.GRAYSCALE_ONLY,
     DisplayMode.CONTOUR_ONLY,
+    DisplayMode.GRAYSCALE_ONLY,
     DisplayMode.COLOR_WITH_CONTOUR,
     DisplayMode.GRAYSCALE_WITH_CONTOUR,
   ];
