@@ -17,6 +17,7 @@ interface ImageCanvasProps {
   onMouseDown?: (e: React.MouseEvent) => void;
   onMouseMove?: (e: React.MouseEvent) => void;
   onMouseUp?: () => void;
+  onWheel?: (e: React.WheelEvent) => void;
   onContainerResize?: (width: number, height: number) => void;
 }
 
@@ -34,6 +35,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   onMouseDown,
   onMouseMove,
   onMouseUp,
+  onWheel,
   onContainerResize,
 }, ref) => {
   const { canvasRef, renderImage, renderWithLayers } = useCanvasRenderer();
@@ -102,6 +104,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
+        onWheel={onWheel}
       >
         <canvas
           ref={canvasRef}

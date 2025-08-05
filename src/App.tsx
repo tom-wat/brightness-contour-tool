@@ -63,6 +63,7 @@ function App() {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleWheel,
     getTransform,
   } = useZoomPan(
     containerSize?.width,
@@ -309,6 +310,7 @@ function App() {
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
+                  onWheel={handleWheel}
                   onContainerResize={handleContainerResize}
                 />
               </div>
