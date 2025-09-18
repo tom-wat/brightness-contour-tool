@@ -2,6 +2,7 @@ import React from 'react';
 import { DisplayOptions } from '../types/UITypes';
 import { ExportControls } from './ExportControls';
 import { ExportSettings } from '../hooks/useImageExport';
+import { SettingsStorage } from '../hooks/useLocalStorage';
 
 interface DisplaySettingsProps {
   displayOptions: DisplayOptions;
@@ -37,12 +38,15 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
     });
   };
 
-  // All Frequency Layersボタンの状態を独立して管理
-  const [allFrequencyLayersState, setAllFrequencyLayersState] = React.useState(true);
+  // All Frequency Layersボタンの状態を独立して管理（localStorage対応）
+  const [allFrequencyLayersState, setAllFrequencyLayersState] = React.useState(() =>
+    SettingsStorage.getAllFrequencyLayersState(false)
+  );
 
   const handleToggleAllFrequency = () => {
     const newState = !allFrequencyLayersState;
     setAllFrequencyLayersState(newState);
+    SettingsStorage.saveAllFrequencyLayersState(newState);
     onDisplayOptionsChange({
       ...displayOptions,
       layers: {

@@ -43,6 +43,7 @@ export class SettingsStorage {
     EDGE_PROCESSING: 'brightness-contour-edge-processing',
     DISPLAY_MODE: 'brightness-contour-display-mode',
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
+    ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
   } as const;
 
   static getContourSettings<T>(defaultValue: T): T {
@@ -144,6 +145,23 @@ export class SettingsStorage {
       localStorage.setItem(this.KEYS.DISPLAY_OPTIONS, JSON.stringify(options));
     } catch (error) {
       console.warn('Failed to save display options:', error);
+    }
+  }
+
+  static getAllFrequencyLayersState(defaultValue: boolean): boolean {
+    try {
+      const stored = localStorage.getItem(this.KEYS.ALL_FREQUENCY_LAYERS_STATE);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static saveAllFrequencyLayersState(state: boolean): void {
+    try {
+      localStorage.setItem(this.KEYS.ALL_FREQUENCY_LAYERS_STATE, JSON.stringify(state));
+    } catch (error) {
+      console.warn('Failed to save all frequency layers state:', error);
     }
   }
 
