@@ -31,7 +31,7 @@ export const ExportControls: React.FC<ExportControlsProps> = ({
   };
 
   return (
-    <div className="p-6 border-t border-gray-200">
+    <div className="p-6">
       <h3 className="text-md font-semibold text-gray-900 mb-4">Export Image</h3>
       
       <div className="space-y-4">
