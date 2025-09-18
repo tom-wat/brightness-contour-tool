@@ -1,0 +1,210 @@
+import { useState, useCallback, useRef } from 'react';
+import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
+
+export const useFrequencySeparation = () => {
+  const [frequencyData, setFrequencyData] = useState<FrequencyData>({
+    lowFrequency: null,
+    highFrequencyBright: null,
+    highFrequencyDark: null,
+    highFrequencyCombined: null,
+  });
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const createGaussianKernel = useCallback((radius: number): number[] => {
+    const size = Math.ceil(radius * 2) * 2 + 1;
+    const kernel: number[] = [];
+    const sigma = radius / 3;
+    const twoSigmaSquared = 2 * sigma * sigma;
+    let sum = 0;
+
+    const center = Math.floor(size / 2);
+    for (let i = 0; i < size; i++) {
+      const distance = i - center;
+      const value = Math.exp(-(distance * distance) / twoSigmaSquared);
+      kernel[i] = value;
+      sum += value;
+    }
+
+    // Normalize
+    for (let i = 0; i < size; i++) {
+      if (kernel[i] !== undefined) {
+        kernel[i] = kernel[i]! / sum;
+      }
+    }
+
+    return kernel;
+  }, []);
+
+  const applyGaussianBlur = useCallback((imageData: ImageData, radius: number): ImageData => {
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement('canvas');
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      canvasRef.current = document.createElement('canvas');
+    };
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+
+    const kernel = createGaussianKernel(radius);
+    const kernelSize = kernel.length;
+    const kernelRadius = Math.floor(kernelSize / 2);
+
+    const source = new Uint8ClampedArray(imageData.data);
+    const temp = new Uint8ClampedArray(imageData.data.length);
+    const result = new Uint8ClampedArray(imageData.data.length);
+
+    const { width, height } = imageData;
+
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let r = 0, g = 0, b = 0, a = 0;
+
+        for (let i = 0; i < kernelSize; i++) {
+          const sampleX = Math.min(Math.max(x + i - kernelRadius, 0), width - 1);
+          const sourceIndex = (y * width + sampleX) * 4;
+          const weight = kernel[i] || 0;
+
+          r += (source[sourceIndex] || 0) * weight;
+          g += (source[sourceIndex + 1] || 0) * weight;
+          b += (source[sourceIndex + 2] || 0) * weight;
+          a += (source[sourceIndex + 3] || 0) * weight;
+        }
+
+        const targetIndex = (y * width + x) * 4;
+        temp[targetIndex] = r;
+        temp[targetIndex + 1] = g;
+        temp[targetIndex + 2] = b;
+        temp[targetIndex + 3] = a;
+      }
+    }
+
+    // Vertical pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let r = 0, g = 0, b = 0, a = 0;
+
+        for (let i = 0; i < kernelSize; i++) {
+          const sampleY = Math.min(Math.max(y + i - kernelRadius, 0), height - 1);
+          const sourceIndex = (sampleY * width + x) * 4;
+          const weight = kernel[i] || 0;
+
+          r += (temp[sourceIndex] || 0) * weight;
+          g += (temp[sourceIndex + 1] || 0) * weight;
+          b += (temp[sourceIndex + 2] || 0) * weight;
+          a += (temp[sourceIndex + 3] || 0) * weight;
+        }
+
+        const targetIndex = (y * width + x) * 4;
+        result[targetIndex] = r;
+        result[targetIndex + 1] = g;
+        result[targetIndex + 2] = b;
+        result[targetIndex + 3] = a;
+      }
+    }
+
+    return new ImageData(result, width, height);
+  }, [createGaussianKernel]);
+
+  const separateFrequencies = useCallback((
+    imageData: ImageData,
+    settings: FrequencySettings
+  ): FrequencyData => {
+
+    // Apply Gaussian blur to get low frequency component
+    const lowFrequency = applyGaussianBlur(imageData, settings.blurRadius);
+
+    const { width, height } = imageData;
+    const original = imageData.data;
+    const lowFreq = lowFrequency.data;
+
+    // Create high frequency components
+    const highFreqBrightData = new Uint8ClampedArray(original.length);
+    const highFreqDarkData = new Uint8ClampedArray(original.length);
+    const highFreqCombinedData = new Uint8ClampedArray(original.length);
+
+    for (let i = 0; i < original.length; i += 4) {
+      // Calculate high frequency difference
+      const rDiff = (original[i] || 0) - (lowFreq[i] || 0);
+      const gDiff = (original[i + 1] || 0) - (lowFreq[i + 1] || 0);
+      const bDiff = (original[i + 2] || 0) - (lowFreq[i + 2] || 0);
+
+      // Separate into bright and dark components
+      const brightR = Math.max(0, rDiff);
+      const brightG = Math.max(0, gDiff);
+      const brightB = Math.max(0, bDiff);
+
+      const darkR = Math.max(0, -rDiff);
+      const darkG = Math.max(0, -gDiff);
+      const darkB = Math.max(0, -bDiff);
+
+      // Bright high frequency (Linear Light用: 128 + 明るい部分/2 * intensity)
+      highFreqBrightData[i] = Math.round(Math.min(255, 128 + brightR * settings.brightIntensity / 2));
+      highFreqBrightData[i + 1] = Math.round(Math.min(255, 128 + brightG * settings.brightIntensity / 2));
+      highFreqBrightData[i + 2] = Math.round(Math.min(255, 128 + brightB * settings.brightIntensity / 2));
+      highFreqBrightData[i + 3] = original[i + 3] || 255;
+
+      // Dark high frequency (Linear Light用: 128 - 暗い部分/2 * intensity)
+      highFreqDarkData[i] = Math.round(Math.max(0, 128 - darkR * settings.darkIntensity / 2));
+      highFreqDarkData[i + 1] = Math.round(Math.max(0, 128 - darkG * settings.darkIntensity / 2));
+      highFreqDarkData[i + 2] = Math.round(Math.max(0, 128 - darkB * settings.darkIntensity / 2));
+      highFreqDarkData[i + 3] = original[i + 3] || 255;
+
+      // Combined high frequency
+      const combinedR = Math.max(0, Math.min(255, 128 + rDiff));
+      const combinedG = Math.max(0, Math.min(255, 128 + gDiff));
+      const combinedB = Math.max(0, Math.min(255, 128 + bDiff));
+
+      highFreqCombinedData[i] = Math.round(combinedR);
+      highFreqCombinedData[i + 1] = Math.round(combinedG);
+      highFreqCombinedData[i + 2] = Math.round(combinedB);
+      highFreqCombinedData[i + 3] = original[i + 3] || 255;
+    }
+
+    return {
+      lowFrequency,
+      highFrequencyBright: new ImageData(highFreqBrightData, width, height),
+      highFrequencyDark: new ImageData(highFreqDarkData, width, height),
+      highFrequencyCombined: new ImageData(highFreqCombinedData, width, height),
+    };
+  }, [applyGaussianBlur]);
+
+  const processFrequencySeparation = useCallback(async (
+    imageData: ImageData,
+    settings: FrequencySettings
+  ) => {
+    setIsProcessing(true);
+
+    try {
+      // Use setTimeout to allow UI to update
+      const result = await new Promise<FrequencyData>((resolve) => {
+        setTimeout(() => {
+          const separated = separateFrequencies(imageData, settings);
+          resolve(separated);
+        }, 0);
+      });
+
+      setFrequencyData(result);
+    } catch (error) {
+      console.error('Frequency separation processing failed:', error);
+      setFrequencyData({
+        lowFrequency: null,
+        highFrequencyBright: null,
+        highFrequencyDark: null,
+        highFrequencyCombined: null,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [separateFrequencies]);
+
+  return {
+    frequencyData,
+    isProcessing,
+    processFrequencySeparation,
+  };
+};

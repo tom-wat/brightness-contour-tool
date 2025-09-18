@@ -42,6 +42,9 @@ export interface DisplayLayers {
   contour: boolean;
   filteredContour: boolean;
   edge: boolean;
+  lowFrequency: boolean;
+  highFrequencyBright: boolean;
+  highFrequencyDark: boolean;
 }
 
 export interface DisplayOptions {
@@ -56,6 +59,9 @@ export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
     contour: true,
     filteredContour: false,
     edge: false,
+    lowFrequency: true,
+    highFrequencyBright: true,
+    highFrequencyDark: true,
   },
   grayscaleMode: false,
 };

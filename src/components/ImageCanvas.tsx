@@ -2,6 +2,7 @@ import React, { useRef, useEffect, forwardRef } from 'react';
 import { useCanvasRenderer } from '../hooks/useCanvasRenderer';
 import { BrightnessData, ContourSettings } from '../types/ImageTypes';
 import { DisplayMode, DisplayOptions } from '../types/UITypes';
+import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
 
 interface ImageCanvasProps {
   originalImageData: ImageData;
@@ -13,6 +14,8 @@ interface ImageCanvasProps {
   cannyOpacity: number;
   filteredImageData?: ImageData | null;
   imageFilterOpacity?: number;
+  frequencyData?: FrequencyData | null;
+  frequencySettings?: FrequencySettings;
   transform?: string;
   onMouseDown?: (e: React.MouseEvent) => void;
   onMouseMove?: (e: React.MouseEvent) => void;
@@ -31,6 +34,8 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   cannyOpacity,
   filteredImageData,
   imageFilterOpacity = 100,
+  frequencyData,
+  frequencySettings,
   transform,
   onMouseDown,
   onMouseMove,
@@ -52,20 +57,21 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
     if (displayOptions) {
       // 新しいレイヤーベースの表示
       renderWithLayers(
-        originalImageData, 
-        brightnessData, 
-        edgeData, 
-        filteredImageData || null, 
-        displayOptions, 
-        contourSettings, 
-        cannyOpacity, 
-        imageFilterOpacity
+        originalImageData,
+        brightnessData,
+        edgeData,
+        filteredImageData || null,
+        displayOptions,
+        contourSettings,
+        cannyOpacity,
+        imageFilterOpacity,
+        frequencyData
       );
     } else if (displayMode) {
       // 従来のdisplayModeベースの表示（後方互換性）
       renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity);
     }
-  }, [originalImageData, brightnessData, edgeData, displayMode, displayOptions, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity, renderImage, renderWithLayers]);
+  }, [originalImageData, brightnessData, edgeData, displayMode, displayOptions, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity, frequencyData, frequencySettings, renderImage, renderWithLayers]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { BrightnessData, ContourSettings } from '../types/ImageTypes';
 import { DisplayMode, DisplayOptions } from '../types/UITypes';
+import { FrequencyData } from '../types/FrequencyTypes';
 
 interface UseCanvasRendererReturn {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -22,7 +23,8 @@ interface UseCanvasRendererReturn {
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
     cannyOpacity?: number,
-    imageFilterOpacity?: number
+    imageFilterOpacity?: number,
+    frequencyData?: FrequencyData | null
   ) => void;
   clearCanvas: () => void;
 }
@@ -392,6 +394,38 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return combined;
   };
 
+  // Linear Light合成モード（Photoshop互換）
+  const combineWithLinearLight = (
+    baseImageData: ImageData,
+    overlayImageData: ImageData
+  ): ImageData => {
+    const combined = new ImageData(
+      new Uint8ClampedArray(baseImageData.data),
+      baseImageData.width,
+      baseImageData.height
+    );
+
+    for (let i = 0; i < combined.data.length; i += 4) {
+      const baseR = combined.data[i] || 0;
+      const baseG = combined.data[i + 1] || 0;
+      const baseB = combined.data[i + 2] || 0;
+
+      const overlayR = overlayImageData.data[i] || 0;
+      const overlayG = overlayImageData.data[i + 1] || 0;
+      const overlayB = overlayImageData.data[i + 2] || 0;
+
+      // Linear Light合成式: Base + 2 * (Overlay - 128)
+      // Photoshopの Linear Light ブレンドモードと同等
+      combined.data[i] = Math.min(255, Math.max(0, baseR + 2 * (overlayR - 128)));
+      combined.data[i + 1] = Math.min(255, Math.max(0, baseG + 2 * (overlayG - 128)));
+      combined.data[i + 2] = Math.min(255, Math.max(0, baseB + 2 * (overlayB - 128)));
+      // アルファチャンネルは元のまま
+      combined.data[i + 3] = baseImageData.data[i + 3] || 255;
+    }
+
+    return combined;
+  };
+
   const renderImage = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
@@ -630,7 +664,8 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
     cannyOpacity: number = 100,
-    imageFilterOpacity: number = 100
+    imageFilterOpacity: number = 100,
+    frequencyData: FrequencyData | null = null
   ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -733,14 +768,50 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
     // 5. Edge Layer
     if (displayOptions.layers.edge && edgeData) {
-      const edgeColor = displayOptions.grayscaleMode || 
-                      ((displayOptions.layers.contour || displayOptions.layers.filteredContour) && 
-                       !displayOptions.layers.original && !displayOptions.layers.filtered) ? 
+      const edgeColor = displayOptions.grayscaleMode ||
+                      ((displayOptions.layers.contour || displayOptions.layers.filteredContour) &&
+                       !displayOptions.layers.original && !displayOptions.layers.filtered) ?
                       'dark' : 'white';
-      
-      baseImageData = hasBaseImage ? 
+
+      baseImageData = hasBaseImage ?
         combineWithCannyEdges(baseImageData, edgeData, edgeColor, cannyOpacity) :
         combineWithCannyEdgesTransparent(baseImageData, edgeData, edgeColor, cannyOpacity);
+    }
+
+    // 6. Frequency Layers
+    if (frequencyData) {
+      // Low Frequency Layer (ベースとして使用)
+      if (displayOptions.layers.lowFrequency && frequencyData.lowFrequency) {
+        baseImageData = hasBaseImage ?
+          combineImageData(baseImageData, frequencyData.lowFrequency) :
+          combineImageDataTransparent(baseImageData, frequencyData.lowFrequency);
+      }
+
+      // High Frequency Bright Layer
+      if (displayOptions.layers.highFrequencyBright && frequencyData.highFrequencyBright) {
+        if (displayOptions.layers.lowFrequency) {
+          // Low Frequencyがオンの場合: Linear Light合成
+          baseImageData = combineWithLinearLight(baseImageData, frequencyData.highFrequencyBright);
+        } else {
+          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
+          baseImageData = hasBaseImage ?
+            combineImageData(baseImageData, frequencyData.highFrequencyBright) :
+            combineImageDataTransparent(baseImageData, frequencyData.highFrequencyBright);
+        }
+      }
+
+      // High Frequency Dark Layer
+      if (displayOptions.layers.highFrequencyDark && frequencyData.highFrequencyDark) {
+        if (displayOptions.layers.lowFrequency) {
+          // Low Frequencyがオンの場合: Linear Light合成
+          baseImageData = combineWithLinearLight(baseImageData, frequencyData.highFrequencyDark);
+        } else {
+          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
+          baseImageData = hasBaseImage ?
+            combineImageData(baseImageData, frequencyData.highFrequencyDark) :
+            combineImageDataTransparent(baseImageData, frequencyData.highFrequencyDark);
+        }
+      }
     }
 
     ctx.putImageData(baseImageData, 0, 0);

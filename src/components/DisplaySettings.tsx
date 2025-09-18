@@ -37,6 +37,23 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
     });
   };
 
+  // All Frequency Layersボタンの状態を独立して管理
+  const [allFrequencyLayersState, setAllFrequencyLayersState] = React.useState(true);
+
+  const handleToggleAllFrequency = () => {
+    const newState = !allFrequencyLayersState;
+    setAllFrequencyLayersState(newState);
+    onDisplayOptionsChange({
+      ...displayOptions,
+      layers: {
+        ...displayOptions.layers,
+        lowFrequency: newState,
+        highFrequencyBright: newState,
+        highFrequencyDark: newState,
+      },
+    });
+  };
+
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
       <div className="flex-1 overflow-y-auto">
@@ -145,6 +162,86 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 />
               </button>
             </div>
+
+            {/* All Frequency Layers */}
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">
+                All Frequency Layers
+              </label>
+              <button
+                onClick={handleToggleAllFrequency}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  allFrequencyLayersState ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-label="Toggle all frequency layers"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    allFrequencyLayersState ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+              {/* Low Frequency Layer */}
+              <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    Low Frequency
+                  </label>
+                  <button
+                    onClick={() => handleLayerToggle('lowFrequency')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      displayOptions.layers.lowFrequency ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                    aria-label="Toggle low frequency layer"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        displayOptions.layers.lowFrequency ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+              {/* High Frequency Bright Layer */}
+              <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    Bright Details
+                  </label>
+                  <button
+                    onClick={() => handleLayerToggle('highFrequencyBright')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      displayOptions.layers.highFrequencyBright ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                    aria-label="Toggle bright details layer"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        displayOptions.layers.highFrequencyBright ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+              {/* High Frequency Dark Layer */}
+              <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    Dark Details
+                  </label>
+                  <button
+                    onClick={() => handleLayerToggle('highFrequencyDark')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      displayOptions.layers.highFrequencyDark ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                    aria-label="Toggle dark details layer"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        displayOptions.layers.highFrequencyDark ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
           </div>
 
           {/* Grayscale Mode */}

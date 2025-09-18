@@ -7,18 +7,21 @@ import { ContourControls } from './components/ContourControls';
 import { CannyControls } from './components/CannyControls';
 import { EdgeProcessingControls } from './components/EdgeProcessingControls';
 import { ImageFilterControls } from './components/ImageFilterControls';
+import { FrequencyControls } from './components/FrequencyControls';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
 import { useCannyDetection } from './hooks/useCannyDetection';
 import { useImageFilter } from './hooks/useImageFilter';
 import { useZoomPan } from './hooks/useZoomPan';
 import { useEdgeProcessing } from './hooks/useEdgeProcessing';
 import { useImageExport } from './hooks/useImageExport';
+import { useFrequencySeparation } from './hooks/useFrequencySeparation';
 import { SettingsStorage } from './hooks/useLocalStorage';
 import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
 import { CannyParams, DEFAULT_CANNY_PARAMS } from './types/CannyTypes';
 import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from './types/UITypes';
 import { EdgeProcessingSettings, DEFAULT_EDGE_PROCESSING_SETTINGS } from './types/EdgeProcessingTypes';
 import { ExportSettings } from './hooks/useImageExport';
+import { FrequencySettings, DEFAULT_FREQUENCY_SETTINGS } from './types/FrequencyTypes';
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
@@ -44,12 +47,16 @@ function App() {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(
+    DEFAULT_FREQUENCY_SETTINGS
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
   const { edgeData, detectEdges, calculateOptimalThresholds, openCVLoaded, clearEdges } = useCannyDetection();
   const { processEdges } = useEdgeProcessing();
   const { settings: imageFilterSettings, result: imageFilterResult, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
+  const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation } = useFrequencySeparation();
   const { exportCurrentView } = useImageExport();
   
   // ズーム・パン機能
@@ -85,7 +92,7 @@ function App() {
     // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
     detectEdges(result.originalImageData, cannyParams);
-    
+
     // ズーム・パン状態をリセット
     resetZoom();
     // 自動フィット有効化
@@ -154,6 +161,17 @@ function App() {
       }, 0);
     }
   }, [edgeData, processEdges]);
+
+  const handleFrequencySettingsChange = useCallback((settings: FrequencySettings) => {
+    setFrequencySettings(settings);
+    // SettingsStorage.saveFrequencySettings(settings); // TODO: Add to localStorage
+  }, []);
+
+  const handleFrequencyApply = useCallback(() => {
+    if (uploadedImage?.originalImageData) {
+      processFrequencySeparation(uploadedImage.originalImageData, frequencySettings);
+    }
+  }, [uploadedImage?.originalImageData, processFrequencySeparation, frequencySettings]);
 
   const handleImageFilterSettingsChange = useCallback((settings: Partial<typeof imageFilterSettings>) => {
     console.log('Image filter settings changed:', settings);
@@ -266,6 +284,13 @@ function App() {
                   error={imageFilterResult.error}
                   onApplyImageFilter={handleApplyImageFilter}
                 />
+                <FrequencyControls
+                  settings={frequencySettings}
+                  onSettingsChange={handleFrequencySettingsChange}
+                  onApply={handleFrequencyApply}
+                  isProcessing={isFrequencyProcessing}
+                  hasImageData={!!uploadedImage}
+                />
                 <CannyControls
                   cannyParams={cannyParams}
                   cannyOpacity={cannyOpacity}
@@ -306,6 +331,8 @@ function App() {
                   cannyOpacity={cannyOpacity}
                   filteredImageData={imageFilterResult.filteredImageData}
                   imageFilterOpacity={imageFilterSettings.opacity * 100}
+                  frequencyData={frequencyData}
+                  frequencySettings={frequencySettings}
                   transform={getTransform()}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
