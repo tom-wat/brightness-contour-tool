@@ -49,7 +49,23 @@ export class SettingsStorage {
   static getContourSettings<T>(defaultValue: T): T {
     try {
       const stored = localStorage.getItem(this.KEYS.CONTOUR_SETTINGS);
-      return stored ? JSON.parse(stored) : defaultValue;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Ensure minContourDistance exists (migration for existing users)
+        if (typeof parsed.minContourDistance === 'undefined') {
+          parsed.minContourDistance = 0;
+        }
+        // Ensure brightnessThreshold exists (migration for existing users)
+        if (typeof parsed.brightnessThreshold === 'undefined') {
+          parsed.brightnessThreshold = 65;
+        }
+        // Ensure contourContrast exists (migration for existing users)
+        if (typeof parsed.contourContrast === 'undefined') {
+          parsed.contourContrast = 0;
+        }
+        return parsed;
+      }
+      return defaultValue;
     } catch {
       return defaultValue;
     }

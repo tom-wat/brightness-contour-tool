@@ -28,10 +28,13 @@ function App() {
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(() =>
     SettingsStorage.getDisplayOptions(DEFAULT_DISPLAY_OPTIONS)
   );
-  const [contourSettings, setContourSettings] = useState<ContourSettings>(() => 
+  const [contourSettings, setContourSettings] = useState<ContourSettings>(() =>
     SettingsStorage.getContourSettings({
       levels: DEFAULT_CONTOUR_LEVELS,
       transparency: 80,
+      minContourDistance: 0,
+      brightnessThreshold: 65,
+      contourContrast: 0,
     })
   );
   const [cannyParams, setCannyParams] = useState<CannyParams>(() => 
@@ -121,6 +124,7 @@ function App() {
 
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
+    console.log('🔧 ContourSettings changed:', settings);
     setContourSettings(settings);
     SettingsStorage.saveContourSettings(settings);
     if (uploadedImage) {

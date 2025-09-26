@@ -85,7 +85,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
     });
 
     resizeObserver.observe(containerRef.current);
-    
+
     // 初回サイズ通知
     const rect = containerRef.current.getBoundingClientRect();
     onContainerResize(rect.width, rect.height);
@@ -94,6 +94,45 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
       resizeObserver.disconnect();
     };
   }, [onContainerResize]);
+
+  // Wheel event listener with non-passive option
+  useEffect(() => {
+    if (!containerRef.current || !onWheel) return;
+
+    const container = containerRef.current;
+
+    const handleWheelEvent = (e: WheelEvent) => {
+      // Prevent default browser wheel behavior
+      e.preventDefault();
+
+      // Create a minimal synthetic React wheel event
+      const syntheticEvent = {
+        currentTarget: container,
+        target: e.target,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaZ: e.deltaZ,
+        deltaMode: e.deltaMode,
+        preventDefault: () => e.preventDefault(),
+        stopPropagation: () => e.stopPropagation(),
+        nativeEvent: e,
+        isDefaultPrevented: () => e.defaultPrevented,
+        isPropagationStopped: () => false,
+        persist: () => {},
+      } as unknown as React.WheelEvent;
+
+      onWheel(syntheticEvent);
+    };
+
+    // Add non-passive wheel event listener
+    container.addEventListener('wheel', handleWheelEvent, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent);
+    };
+  }, [onWheel]);
 
   return (
     <div className="flex justify-center p-6">
@@ -110,7 +149,6 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
-        onWheel={onWheel}
       >
         <canvas
           ref={canvasRef}

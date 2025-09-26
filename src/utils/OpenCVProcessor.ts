@@ -105,8 +105,11 @@ export class OpenCVProcessor {
       this.status.isLoading = true;
       this.status.error = null;
 
+      console.log('🔄 Starting OpenCV.js loading process...');
+
       // OpenCV.jsが既に読み込まれているかチェック
       if (window.cv && window.cv.Mat) {
+        console.log('✅ OpenCV.js already loaded');
         this.status.isLoaded = true;
         this.status.isLoading = false;
         resolve();
@@ -114,23 +117,42 @@ export class OpenCVProcessor {
       }
 
       // OpenCV.jsの読み込み完了を待つ
+      let checkCount = 0;
+      const maxChecks = 300; // 30秒 (100ms * 300)
+
       const checkInterval = setInterval(() => {
+        checkCount++;
+
         if (window.cv && window.cv.Mat) {
+          console.log(`✅ OpenCV.js loaded successfully after ${checkCount * 100}ms`);
           clearInterval(checkInterval);
-          clearTimeout(timeout);
           this.status.isLoaded = true;
           this.status.isLoading = false;
           resolve();
+          return;
+        }
+
+        // 進捗ログ（5秒毎）
+        if (checkCount % 50 === 0) {
+          console.log(`⏳ Still waiting for OpenCV.js... (${checkCount * 100}ms elapsed)`);
+        }
+
+        // タイムアウト処理
+        if (checkCount >= maxChecks) {
+          console.error('❌ OpenCV.js loading timeout after 30 seconds');
+          clearInterval(checkInterval);
+          this.status.isLoading = false;
+          this.status.error = 'OpenCV.js loading timeout after 30 seconds';
+          reject(new Error('OpenCV.js loading timeout'));
         }
       }, 100);
 
-      // タイムアウト処理（30秒）
-      const timeout = setTimeout(() => {
-        clearInterval(checkInterval);
-        this.status.isLoading = false;
-        this.status.error = 'OpenCV.js loading timeout';
-        reject(new Error('OpenCV.js loading timeout'));
-      }, 30000);
+      // 初期状態を確認
+      setTimeout(() => {
+        if (!window.cv) {
+          console.warn('⚠️  window.cv not found after initial delay - script may have failed to load');
+        }
+      }, 1000);
     });
   }
 

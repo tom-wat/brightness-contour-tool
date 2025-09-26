@@ -79,6 +79,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return grayscaleData;
   };
 
+
   const detectContours = (
     brightnessData: BrightnessData,
     settings: ContourSettings
@@ -87,6 +88,12 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     const contourData = new ImageData(width, height);
     const levelStep = 255 / settings.levels;
 
+    // Base adjustment with brightness threshold and contrast enhancement
+    const brightnessThreshold = settings.brightnessThreshold ?? 65; // Fixed threshold for optimal visibility
+    const contrastSetting = settings.contourContrast ?? 0; // Default 0%
+    const contrastStrength = contrastSetting / 100; // 0.0 to 1.0
+
+    // Apply contour detection with simple adjacent brightness average
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         const currentBrightness = brightnessMap[y]![x]!;
@@ -100,31 +107,38 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         ];
 
         let isContour = false;
+        let adjacentBrightness = currentBrightness;
+
         for (const neighbor of neighbors) {
           const neighborLevel = Math.floor(neighbor / levelStep);
           if (Math.abs(currentLevel - neighborLevel) >= 1) {
             isContour = true;
+            // Use average of current and different neighbor brightness
+            adjacentBrightness = (currentBrightness + neighbor) / 2;
             break;
           }
         }
 
         const index = (y * width + x) * 4;
         if (isContour) {
-          // 輝度範囲に応じて適切なコントラストを持つグレー値を計算
-          const levelRangeMin = (currentLevel / settings.levels) * 255;
-          const levelRangeMax = ((currentLevel + 1) / settings.levels) * 255;
-          const rangeMid = (levelRangeMin + levelRangeMax) / 2;
-          
-          // 現在の輝度が範囲の中央より明るいか暗いかで等高線色を決定
+          // Adaptive base adjustment based on brightness threshold
+          const baseAdjustment = adjacentBrightness >= brightnessThreshold ? -25 : +75;
+          const baseContourGray = adjacentBrightness + baseAdjustment;
+
+          // Apply contrast enhancement based on adjustment type
           let contourGray;
-          if (currentBrightness > rangeMid) {
-            // 明るい場合は少し暗めの線（視認性確保）
-            contourGray = Math.max(0, levelRangeMin - 30);
+          if (contrastStrength > 0) {
+            if (baseAdjustment < 0) { // -25 case: make darker
+              contourGray = baseContourGray * (1 - contrastStrength);
+            } else { // +75 case: make brighter
+              contourGray = baseContourGray + (255 - baseContourGray) * contrastStrength;
+            }
           } else {
-            // 暗い場合は少し明るめの線（視認性確保）
-            contourGray = Math.min(255, levelRangeMax + 30);
+            contourGray = baseContourGray;
           }
-          
+
+          contourGray = Math.max(0, Math.min(255, contourGray));
+
           contourData.data[index] = contourGray;
           contourData.data[index + 1] = contourGray;
           contourData.data[index + 2] = contourGray;
@@ -141,6 +155,98 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return contourData;
   };
 
+  // Optimized lightweight contour thinning
+  const thinContourLines = (contourData: ImageData, minDistance: number): ImageData => {
+    const { width, height } = contourData;
+    const thinned = new ImageData(width, height);
+
+    if (minDistance <= 0) return contourData;
+
+    const startTime = performance.now();
+
+    // Use larger grid for better performance at cost of some precision
+    const gridSize = Math.max(2, Math.ceil(minDistance * 1.2));
+    const occupied = new Set<string>();
+
+    let originalCount = 0;
+    let keptCount = 0;
+
+    // Single pass with optimized grid-based thinning
+    for (let y = 0; y < height; y += 1) { // Process every pixel
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+
+        if (contourData.data[index + 3]! > 0) { // Has contour
+          originalCount++;
+
+          // Calculate grid position
+          const gridX = Math.floor(x / gridSize);
+          const gridY = Math.floor(y / gridSize);
+          const gridKey = `${gridX},${gridY}`;
+
+          // Simple grid check (no 9-neighborhood for better performance)
+          if (!occupied.has(gridKey)) {
+            occupied.add(gridKey);
+            keptCount++;
+
+            // Copy the contour pixel to thinned image
+            thinned.data[index] = contourData.data[index]!;
+            thinned.data[index + 1] = contourData.data[index + 1]!;
+            thinned.data[index + 2] = contourData.data[index + 2]!;
+            thinned.data[index + 3] = contourData.data[index + 3]!;
+          }
+        }
+      }
+    }
+
+    const endTime = performance.now();
+
+    // Debug: Log thinning performance
+    if (originalCount > 10000) { // Only log for large images
+      console.log(`Fast thinning: ${originalCount} → ${keptCount} pixels (${minDistance}px) in ${(endTime - startTime).toFixed(1)}ms`);
+    }
+
+    return thinned;
+  };
+
+  // Enhanced contour detection with optional thinning
+  const detectContoursWithThinning = useCallback((
+    brightnessData: BrightnessData,
+    settings: ContourSettings
+  ): ImageData => {
+    const contourData = detectContours(brightnessData, settings);
+
+    // Apply thinning only when really needed (strict conditions)
+    const shouldThin = settings.minContourDistance &&
+                      settings.minContourDistance > 1 && // Minimum 1px distance
+                      settings.levels >= 15; // Higher threshold for better performance
+
+    if (shouldThin) {
+      return thinContourLines(contourData, settings.minContourDistance!);
+    }
+
+    return contourData;
+  }, []);
+
+  // Enhanced transparent contour detection with optional thinning
+  const detectContoursTransparentWithThinning = useCallback((
+    brightnessData: BrightnessData,
+    settings: ContourSettings
+  ): ImageData => {
+    const contourData = detectContoursTransparent(brightnessData, settings);
+
+    // Apply thinning only when really needed (strict conditions)
+    const shouldThin = settings.minContourDistance &&
+                      settings.minContourDistance > 1 && // Minimum 1px distance
+                      settings.levels >= 15; // Higher threshold for better performance
+
+    if (shouldThin) {
+      return thinContourLines(contourData, settings.minContourDistance!);
+    }
+
+    return contourData;
+  }, []);
+
   // 透明背景対応の等高線検出関数
   const detectContoursTransparent = (
     brightnessData: BrightnessData,
@@ -150,6 +256,12 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     const contourData = new ImageData(width, height);
     const levelStep = 255 / settings.levels;
 
+    // Base adjustment with brightness threshold and contrast enhancement
+    const brightnessThreshold = settings.brightnessThreshold ?? 65; // Fixed threshold for optimal visibility
+    const contrastSetting = settings.contourContrast ?? 0; // Default 0%
+    const contrastStrength = contrastSetting / 100; // 0.0 to 1.0
+
+    // Apply contour detection with simple adjacent brightness average
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         const currentBrightness = brightnessMap[y]![x]!;
@@ -163,19 +275,38 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         ];
 
         let isContour = false;
+        let adjacentBrightness = currentBrightness;
+
         for (const neighbor of neighbors) {
           const neighborLevel = Math.floor(neighbor / levelStep);
           if (Math.abs(currentLevel - neighborLevel) >= 1) {
             isContour = true;
+            // Use average of current and different neighbor brightness
+            adjacentBrightness = (currentBrightness + neighbor) / 2;
             break;
           }
         }
 
         const index = (y * width + x) * 4;
         if (isContour) {
-          // 透明背景の場合は明るい色で等高線を描画（視認性確保）
-          const contourGray = 200; // 明るいグレー
-          
+          // Adaptive base adjustment based on brightness threshold
+          const baseAdjustment = adjacentBrightness >= brightnessThreshold ? -25 : +75;
+          const baseContourGray = adjacentBrightness + baseAdjustment;
+
+          // Apply contrast enhancement based on adjustment type
+          let contourGray;
+          if (contrastStrength > 0) {
+            if (baseAdjustment < 0) { // -25 case: make darker
+              contourGray = baseContourGray * (1 - contrastStrength);
+            } else { // +75 case: make brighter
+              contourGray = baseContourGray + (255 - baseContourGray) * contrastStrength;
+            }
+          } else {
+            contourGray = baseContourGray;
+          }
+
+          contourGray = Math.max(0, Math.min(255, contourGray));
+
           contourData.data[index] = contourGray;
           contourData.data[index + 1] = contourGray;
           contourData.data[index + 2] = contourGray;
@@ -465,13 +596,13 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
       case DisplayMode.CONTOUR_ONLY:
         if (brightnessData) {
-          finalImageData = detectContours(brightnessData, contourSettings);
+          finalImageData = detectContoursWithThinning(brightnessData, contourSettings);
         }
         break;
 
       case DisplayMode.COLOR_WITH_CONTOUR:
         if (brightnessData) {
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           finalImageData = combineImageData(baseImageData, contourData);
         }
         break;
@@ -479,7 +610,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       case DisplayMode.GRAYSCALE_WITH_CONTOUR:
         if (brightnessData) {
           const grayscaleData = convertToGrayscale(baseImageData);
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           finalImageData = combineImageData(grayscaleData, contourData);
         }
         break;
@@ -506,7 +637,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
       case DisplayMode.CONTOUR_WITH_CANNY:
         if (brightnessData && edgeData) {
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           finalImageData = combineWithCannyEdges(contourData, edgeData, 'dark', cannyOpacity);
         }
         break;
@@ -514,7 +645,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       case DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY:
         if (brightnessData && edgeData) {
           const grayscaleData = convertToGrayscale(baseImageData);
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           const grayscaleWithContour = combineImageData(grayscaleData, contourData);
           finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
         }
@@ -522,7 +653,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
       case DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY:
         if (brightnessData && edgeData) {
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           const colorWithContour = combineImageData(baseImageData, contourData);
           finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
         }
@@ -551,10 +682,10 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         if (filteredImageData && brightnessData) {
           // 画像フィルタ画像から輝度データを生成して等高線のみ表示
           const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          finalImageData = detectContours(filteredBrightnessData, contourSettings);
+          finalImageData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
         } else if (brightnessData) {
           // 画像フィルタが無効の場合は通常の等高線のみ
-          finalImageData = detectContours(brightnessData, contourSettings);
+          finalImageData = detectContoursWithThinning(brightnessData, contourSettings);
         }
         break;
 
@@ -565,11 +696,11 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
           // Create brightness data from filtered image for accurate contour detection
           const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContours(filteredBrightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
           finalImageData = combineImageData(filteredBase, contourData);
         } else if (brightnessData) {
           // 画像フィルタが無効の場合は通常の等高線表示
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           finalImageData = combineImageData(baseImageData, contourData);
         }
         break;
@@ -582,12 +713,12 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const grayscaleBase = convertToGrayscale(filteredBase);
           // Create brightness data from filtered image for accurate contour detection
           const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContours(filteredBrightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
           finalImageData = combineImageData(grayscaleBase, contourData);
         } else if (brightnessData) {
           // 画像フィルタが無効の場合はグレースケール通常等高線表示
           const grayscaleBase = convertToGrayscale(baseImageData);
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           finalImageData = combineImageData(grayscaleBase, contourData);
         }
         break;
@@ -607,12 +738,12 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
           // Create brightness data from filtered image for accurate contour detection
           const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContours(filteredBrightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
           const filteredWithContour = combineImageData(filteredBase, contourData);
           finalImageData = combineWithCannyEdges(filteredWithContour, edgeData, 'white', cannyOpacity);
         } else if (brightnessData && edgeData) {
           // 画像フィルタが無効の場合は通常の全機能合成
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           const colorWithContour = combineImageData(baseImageData, contourData);
           finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
         }
@@ -626,13 +757,13 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           const grayscaleBase = convertToGrayscale(filteredBase);
           // Create brightness data from filtered image for accurate contour detection
           const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContours(filteredBrightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
           const filteredWithContour = combineImageData(grayscaleBase, contourData);
           finalImageData = combineWithCannyEdges(filteredWithContour, edgeData, 'white', cannyOpacity);
         } else if (brightnessData && edgeData) {
           // 画像フィルタが無効の場合はグレースケール全機能合成
           const grayscaleBase = convertToGrayscale(baseImageData);
-          const contourData = detectContours(brightnessData, contourSettings);
+          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
           const grayscaleWithContour = combineImageData(grayscaleBase, contourData);
           finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
         }
@@ -644,7 +775,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     }
 
     ctx.putImageData(finalImageData, 0, 0);
-  }, []);
+  }, [detectContoursWithThinning]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -733,7 +864,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     if (displayOptions.layers.contour && brightnessData) {
       // 常にオリジナル画像の輝度データを使用
       const contourData = hasBaseImage ? 
-        detectContours(brightnessData, contourSettings) :
+        detectContoursWithThinning(brightnessData, contourSettings) :
         detectContoursTransparent(brightnessData, contourSettings);
       
       baseImageData = hasBaseImage ? 
@@ -747,9 +878,9 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         // フィルタリングされた画像の輝度データを使用
         const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
         
-        const filteredContourData = hasBaseImage ? 
-          detectContours(filteredBrightnessData, contourSettings) :
-          detectContoursTransparent(filteredBrightnessData, contourSettings);
+        const filteredContourData = hasBaseImage ?
+          detectContoursWithThinning(filteredBrightnessData, contourSettings) :
+          detectContoursTransparentWithThinning(filteredBrightnessData, contourSettings);
         
         baseImageData = hasBaseImage ? 
           combineImageData(baseImageData, filteredContourData) :
@@ -757,7 +888,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       } else {
         // フィルター画像がない場合は元画像のcontourを表示
         const contourData = hasBaseImage ? 
-          detectContours(brightnessData, contourSettings) :
+          detectContoursWithThinning(brightnessData, contourSettings) :
           detectContoursTransparent(brightnessData, contourSettings);
         
         baseImageData = hasBaseImage ? 
@@ -815,7 +946,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     }
 
     ctx.putImageData(baseImageData, 0, 0);
-  }, []);
+  }, [detectContoursWithThinning]);
 
   return {
     canvasRef,

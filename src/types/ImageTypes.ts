@@ -9,6 +9,9 @@ export interface BrightnessData {
 export interface ContourSettings {
   levels: number;
   transparency: number;
+  minContourDistance?: number;
+  brightnessThreshold?: number; // 明暗切り替えの閾値 (0-255)
+  contourContrast?: number; // 等高線のコントラスト調整 (0-100)
 }
 
 export interface ImageUploadResult {
