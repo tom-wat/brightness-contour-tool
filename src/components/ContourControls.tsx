@@ -86,37 +86,29 @@ export const ContourControls: React.FC<ContourControlsProps> = ({
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0% (No Enhancement)</span>
-            <span>100% (Maximum Contrast)</span>
+            <span>0%</span>
+            <span>100%</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Enhance contrast: -25 areas become darker, +75 areas become brighter
-          </p>
         </div>
 
-        {contourSettings.levels >= 15 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Min Contour Distance: {contourSettings.minContourDistance || 0}px
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="8"
-              step="0.5"
-              value={contourSettings.minContourDistance || 0}
-              onChange={(e) => handleMinDistanceChange(parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0px (Off)</span>
-              <span>8px</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Remove overlapping contours (levels ≥15 only, optimized for performance)
-            </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Min Contour Distance: {contourSettings.minContourDistance || 0}px
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="3"
+            step="1"
+            value={contourSettings.minContourDistance || 0}
+            onChange={(e) => handleMinDistanceChange(parseFloat(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0px</span>
+            <span>3px</span>
           </div>
-        )}
+        </div>
 
       </div>
     </div>

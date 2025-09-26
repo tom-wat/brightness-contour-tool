@@ -216,13 +216,16 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   ): ImageData => {
     const contourData = detectContours(brightnessData, settings);
 
-    // Apply thinning only when really needed (strict conditions)
-    const shouldThin = settings.minContourDistance &&
-                      settings.minContourDistance > 1 && // Minimum 1px distance
-                      settings.levels >= 15; // Higher threshold for better performance
+    // Apply thinning when enabled (any level)
+    const shouldThin = settings.minContourDistance && settings.minContourDistance > 0;
+
+    console.log(`🔍 Regular thinning check: levels=${settings.levels}, minDistance=${settings.minContourDistance}, shouldThin=${shouldThin}`);
 
     if (shouldThin) {
+      console.log(`✂️ Applying regular thinning with distance=${settings.minContourDistance}`);
       return thinContourLines(contourData, settings.minContourDistance!);
+    } else {
+      console.log(`⏭️ Skipping regular thinning - minDistance is 0`);
     }
 
     return contourData;
@@ -235,13 +238,16 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   ): ImageData => {
     const contourData = detectContoursTransparent(brightnessData, settings);
 
-    // Apply thinning only when really needed (strict conditions)
-    const shouldThin = settings.minContourDistance &&
-                      settings.minContourDistance > 1 && // Minimum 1px distance
-                      settings.levels >= 15; // Higher threshold for better performance
+    // Apply thinning when enabled (any level)
+    const shouldThin = settings.minContourDistance && settings.minContourDistance > 0;
+
+    console.log(`🔍 Transparent thinning check: levels=${settings.levels}, minDistance=${settings.minContourDistance}, shouldThin=${shouldThin}`);
 
     if (shouldThin) {
+      console.log(`✂️ Applying transparent thinning with distance=${settings.minContourDistance}`);
       return thinContourLines(contourData, settings.minContourDistance!);
+    } else {
+      console.log(`⏭️ Skipping transparent thinning - minDistance is 0`);
     }
 
     return contourData;
