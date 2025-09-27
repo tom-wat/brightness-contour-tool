@@ -4,22 +4,16 @@ import { ImageCanvas } from './components/ImageCanvas';
 import { ImageViewControls } from './components/ImageViewControls';
 import { DisplaySettings } from './components/DisplaySettings';
 import { ContourControls } from './components/ContourControls';
-import { CannyControls } from './components/CannyControls';
-import { EdgeProcessingControls } from './components/EdgeProcessingControls';
 import { ImageFilterControls } from './components/ImageFilterControls';
 import { FrequencyControls } from './components/FrequencyControls';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
-import { useCannyDetection } from './hooks/useCannyDetection';
 import { useImageFilter } from './hooks/useImageFilter';
 import { useZoomPan } from './hooks/useZoomPan';
-import { useEdgeProcessing } from './hooks/useEdgeProcessing';
 import { useImageExport } from './hooks/useImageExport';
 import { useFrequencySeparation } from './hooks/useFrequencySeparation';
 import { SettingsStorage } from './hooks/useLocalStorage';
 import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
-import { CannyParams, DEFAULT_CANNY_PARAMS } from './types/CannyTypes';
 import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from './types/UITypes';
-import { EdgeProcessingSettings, DEFAULT_EDGE_PROCESSING_SETTINGS } from './types/EdgeProcessingTypes';
 import { ExportSettings } from './hooks/useImageExport';
 import { FrequencySettings, DEFAULT_FREQUENCY_SETTINGS } from './types/FrequencyTypes';
 
@@ -37,16 +31,6 @@ function App() {
       contourContrast: 0,
     })
   );
-  const [cannyParams, setCannyParams] = useState<CannyParams>(() => 
-    SettingsStorage.getCannyParams(DEFAULT_CANNY_PARAMS)
-  );
-  const [cannyOpacity, setCannyOpacity] = useState(() => 
-    SettingsStorage.getCannyOpacity(80)
-  );
-  const [edgeProcessingSettings, setEdgeProcessingSettings] = useState<EdgeProcessingSettings>(() => 
-    SettingsStorage.getEdgeProcessingSettings(DEFAULT_EDGE_PROCESSING_SETTINGS)
-  );
-  const [processedEdgeData, setProcessedEdgeData] = useState<ImageData | null>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -56,8 +40,6 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
-  const { edgeData, detectEdges, calculateOptimalThresholds, openCVLoaded, clearEdges } = useCannyDetection();
-  const { processEdges } = useEdgeProcessing();
   const { settings: imageFilterSettings, result: imageFilterResult, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
   const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation } = useFrequencySeparation();
   const { exportCurrentView } = useImageExport();
@@ -88,19 +70,16 @@ function App() {
     
     // すべての処理結果をリセット
     clearAnalysis(); // 輝度解析結果をクリア
-    clearEdges(); // エッジ検出結果をクリア
     clearImageFilterResult(); // 画像フィルタ結果をクリア
-    setProcessedEdgeData(null); // エッジ後処理データをクリア
     
     // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
-    detectEdges(result.originalImageData, cannyParams);
 
     // ズーム・パン状態をリセット
     resetZoom();
     // 自動フィット有効化
     setShouldAutoFit(true);
-  }, [analyzeBrightness, contourSettings, detectEdges, cannyParams, resetZoom, clearAnalysis, clearEdges, clearImageFilterResult]);
+  }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult]);
 
   const handleContainerResize = useCallback((width: number, height: number) => {
     // コンテナサイズを保存
@@ -132,39 +111,6 @@ function App() {
     }
   }, [uploadedImage, analyzeBrightness]);
 
-  const handleCannyParamsChange = useCallback((params: CannyParams) => {
-    setCannyParams(params);
-    SettingsStorage.saveCannyParams(params);
-    if (uploadedImage) {
-      detectEdges(uploadedImage.originalImageData, params);
-      // エッジデータが更新されるので、後処理データもリセット
-      setProcessedEdgeData(null);
-    }
-  }, [uploadedImage, detectEdges]);
-
-  const handleCannyOpacityChange = useCallback((opacity: number) => {
-    setCannyOpacity(opacity);
-    SettingsStorage.saveCannyOpacity(opacity);
-  }, []);
-
-  const handleEdgeProcessingSettingsChange = useCallback((settings: EdgeProcessingSettings) => {
-    setEdgeProcessingSettings(settings);
-    SettingsStorage.saveEdgeProcessingSettings(settings);
-    
-    // エッジ後処理を実行
-    if (edgeData) {
-      // 非同期処理でUI をブロックしない
-      setTimeout(() => {
-        try {
-          const result = processEdges(edgeData, settings);
-          setProcessedEdgeData(result.processedEdgeData);
-        } catch (error) {
-          console.error('Edge processing failed:', error);
-          setProcessedEdgeData(edgeData); // フォールバック
-        }
-      }, 0);
-    }
-  }, [edgeData, processEdges]);
 
   const handleFrequencySettingsChange = useCallback((settings: FrequencySettings) => {
     setFrequencySettings(settings);
@@ -195,17 +141,6 @@ function App() {
     }
   }, [uploadedImage, imageFilterSettings.enabled, processImageFilter]);
 
-  const handleAutoDetectThresholds = useCallback(() => {
-    if (uploadedImage) {
-      const optimalThresholds = calculateOptimalThresholds(uploadedImage.originalImageData);
-      const newParams = { ...cannyParams, ...optimalThresholds };
-      setCannyParams(newParams);
-      SettingsStorage.saveCannyParams(newParams);
-      detectEdges(uploadedImage.originalImageData, newParams);
-      // エッジデータが更新されるので、後処理データもリセット
-      setProcessedEdgeData(null);
-    }
-  }, [uploadedImage, cannyParams, calculateOptimalThresholds, detectEdges]);
 
   const handleExport = useCallback(async (settings: ExportSettings) => {
     if (!uploadedImage || !canvasRef.current) return;
@@ -217,9 +152,6 @@ function App() {
         timestamp: new Date().toISOString(),
         displayOptions,
         contourSettings,
-        cannyParams: edgeData ? cannyParams : undefined,
-        edgeProcessingSettings: processedEdgeData ? edgeProcessingSettings : undefined,
-        cannyOpacity: edgeData ? cannyOpacity : undefined,
         imageSize: {
           width: uploadedImage.width,
           height: uploadedImage.height,
@@ -241,11 +173,6 @@ function App() {
     uploadedImage,
     displayOptions,
     contourSettings,
-    cannyParams,
-    edgeProcessingSettings,
-    cannyOpacity,
-    edgeData,
-    processedEdgeData,
     exportCurrentView,
   ]);
 
@@ -295,18 +222,6 @@ function App() {
                   isProcessing={isFrequencyProcessing}
                   hasImageData={!!uploadedImage}
                 />
-                <CannyControls
-                  cannyParams={cannyParams}
-                  cannyOpacity={cannyOpacity}
-                  onCannyParamsChange={handleCannyParamsChange}
-                  onCannyOpacityChange={handleCannyOpacityChange}
-                  onAutoDetectThresholds={handleAutoDetectThresholds}
-                  openCVLoaded={openCVLoaded}
-                />
-                <EdgeProcessingControls
-                  settings={edgeProcessingSettings}
-                  onSettingsChange={handleEdgeProcessingSettingsChange}
-                />
               </div>
             </div>
             
@@ -329,10 +244,8 @@ function App() {
                   ref={canvasRef}
                   originalImageData={uploadedImage.originalImageData}
                   brightnessData={brightnessData}
-                  edgeData={processedEdgeData || edgeData}
                   displayOptions={displayOptions}
                   contourSettings={contourSettings}
-                  cannyOpacity={cannyOpacity}
                   filteredImageData={imageFilterResult.filteredImageData}
                   imageFilterOpacity={imageFilterSettings.opacity * 100}
                   frequencyData={frequencyData}
@@ -354,7 +267,6 @@ function App() {
               onExport={handleExport}
               isExporting={isExporting}
               hasContour={!!brightnessData}
-              hasEdge={!!(processedEdgeData || edgeData)}
             />
           </div>
         </main>

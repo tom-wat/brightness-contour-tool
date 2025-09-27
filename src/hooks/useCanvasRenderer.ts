@@ -8,21 +8,17 @@ interface UseCanvasRendererReturn {
   renderImage: (
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings,
-    cannyOpacity?: number,
     filteredImageData?: ImageData | null,
     imageFilterOpacity?: number
   ) => void;
   renderWithLayers: (
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    edgeData: ImageData | null,
     filteredImageData: ImageData | null,
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
-    cannyOpacity?: number,
     imageFilterOpacity?: number,
     frequencyData?: FrequencyData | null
   ) => void;
@@ -405,103 +401,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return combined;
   };
 
-  const combineWithCannyEdges = (
-    base: ImageData,
-    edges: ImageData,
-    edgeColor: 'white' | 'dark' = 'white',
-    opacity: number = 100
-  ): ImageData => {
-    const combined = new ImageData(base.width, base.height);
-    
-    for (let i = 0; i < base.data.length; i += 4) {
-      const baseR = base.data[i]!;
-      const baseG = base.data[i + 1]!;
-      const baseB = base.data[i + 2]!;
-      const baseA = base.data[i + 3]!;
 
-      const edgeR = edges.data[i]!;
-      const edgeG = edges.data[i + 1]!;
-      const edgeB = edges.data[i + 2]!;
-      const edgeA = edges.data[i + 3]!;
-
-      // エッジが存在する場合（白いピクセル）
-      if (edgeA > 0 && (edgeR > 128 || edgeG > 128 || edgeB > 128)) {
-        const edgeOpacity = (opacity / 100) * 255;
-        const blendRatio = opacity / 100;
-        
-        if (edgeColor === 'dark') {
-          // エッジは暗い色で表示（等高線との区別のため）
-          const edgeColorValue = 40;
-          combined.data[i] = baseR * (1 - blendRatio) + edgeColorValue * blendRatio;
-          combined.data[i + 1] = baseG * (1 - blendRatio) + edgeColorValue * blendRatio;
-          combined.data[i + 2] = baseB * (1 - blendRatio) + edgeColorValue * blendRatio;
-          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
-        } else {
-          // エッジは白色で表示
-          combined.data[i] = baseR * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 1] = baseG * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 2] = baseB * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
-        }
-      } else {
-        // エッジがない場合はベース画像を表示
-        combined.data[i] = baseR;
-        combined.data[i + 1] = baseG;
-        combined.data[i + 2] = baseB;
-        combined.data[i + 3] = baseA;
-      }
-    }
-
-    return combined;
-  };
-
-  // 透明背景対応のCannyエッジ合成関数
-  const combineWithCannyEdgesTransparent = (
-    base: ImageData,
-    edges: ImageData,
-    edgeColor: 'white' | 'dark' = 'white',
-    opacity: number = 100
-  ): ImageData => {
-    const combined = new ImageData(base.width, base.height);
-    const alpha = opacity / 100;
-    
-    for (let i = 0; i < base.data.length; i += 4) {
-      const baseR = base.data[i]!;
-      const baseG = base.data[i + 1]!;
-      const baseB = base.data[i + 2]!;
-      const baseA = base.data[i + 3]!;
-
-      const edgeAlpha = edges.data[i + 3]!;
-
-      if (edgeAlpha > 0) {
-        // エッジがある場合
-        const blendRatio = alpha * (edgeAlpha / 255);
-        const edgeOpacity = Math.floor(255 * blendRatio);
-        
-        if (edgeColor === 'dark') {
-          // 暗色のエッジ（透明背景でも視認性良好）
-          combined.data[i] = baseR * (1 - blendRatio) + 50 * blendRatio;
-          combined.data[i + 1] = baseG * (1 - blendRatio) + 50 * blendRatio;
-          combined.data[i + 2] = baseB * (1 - blendRatio) + 50 * blendRatio;
-          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
-        } else {
-          // 白色のエッジ（透明背景でも視認性良好）
-          combined.data[i] = baseR * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 1] = baseG * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 2] = baseB * (1 - blendRatio) + 255 * blendRatio;
-          combined.data[i + 3] = Math.max(baseA, edgeOpacity);
-        }
-      } else {
-        // エッジがない場合はベース画像をそのまま使用
-        combined.data[i] = baseR;
-        combined.data[i + 1] = baseG;
-        combined.data[i + 2] = baseB;
-        combined.data[i + 3] = baseA;
-      }
-    }
-
-    return combined;
-  };
 
   const combineWithFiltering = (
     base: ImageData,
@@ -566,10 +466,8 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const renderImage = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    edgeData: ImageData | null,
     displayMode: DisplayMode,
     contourSettings: ContourSettings,
-    cannyOpacity: number = 100,
     filteredImageData: ImageData | null = null,
     imageFilterOpacity: number = 100
   ) => {
@@ -621,49 +519,10 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         }
         break;
 
-      case DisplayMode.CANNY_EDGE_ONLY:
-        if (edgeData) {
-          // Create black background for edge visibility
-          const blackBackground = new ImageData(edgeData.width, edgeData.height);
-          for (let i = 0; i < blackBackground.data.length; i += 4) {
-            blackBackground.data[i] = 0;     // R
-            blackBackground.data[i + 1] = 0; // G
-            blackBackground.data[i + 2] = 0; // B
-            blackBackground.data[i + 3] = 255; // A
-          }
-          finalImageData = combineImageData(blackBackground, edgeData);
-        }
-        break;
 
-      case DisplayMode.COLOR_WITH_CANNY:
-        if (edgeData) {
-          finalImageData = combineWithCannyEdges(baseImageData, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
-      case DisplayMode.CONTOUR_WITH_CANNY:
-        if (brightnessData && edgeData) {
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          finalImageData = combineWithCannyEdges(contourData, edgeData, 'dark', cannyOpacity);
-        }
-        break;
 
-      case DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY:
-        if (brightnessData && edgeData) {
-          const grayscaleData = convertToGrayscale(baseImageData);
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          const grayscaleWithContour = combineImageData(grayscaleData, contourData);
-          finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
-      case DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY:
-        if (brightnessData && edgeData) {
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          const colorWithContour = combineImageData(baseImageData, contourData);
-          finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
       // Image Filter Display Modes
       case DisplayMode.DENOISED_ONLY:
@@ -729,51 +588,8 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         }
         break;
 
-      case DisplayMode.DENOISED_WITH_CANNY:
-        if (filteredImageData && edgeData) {
-          finalImageData = combineWithCannyEdges(filteredImageData, edgeData, 'white', cannyOpacity);
-        } else if (edgeData) {
-          // 画像フィルタが無効の場合は元画像+Cannyエッジ
-          finalImageData = combineWithCannyEdges(baseImageData, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
-      case DisplayMode.ALL_WITH_DENOISING:
-        if (filteredImageData && brightnessData && edgeData) {
-          // Apply image filter to the base image first
-          const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
-          // Create brightness data from filtered image for accurate contour detection
-          const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-          const filteredWithContour = combineImageData(filteredBase, contourData);
-          finalImageData = combineWithCannyEdges(filteredWithContour, edgeData, 'white', cannyOpacity);
-        } else if (brightnessData && edgeData) {
-          // 画像フィルタが無効の場合は通常の全機能合成
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          const colorWithContour = combineImageData(baseImageData, contourData);
-          finalImageData = combineWithCannyEdges(colorWithContour, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
-      case DisplayMode.ALL_WITH_DENOISING_GRAYSCALE:
-        if (filteredImageData && brightnessData && edgeData) {
-          // Apply image filter to the base image first
-          const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
-          // Convert to grayscale
-          const grayscaleBase = convertToGrayscale(filteredBase);
-          // Create brightness data from filtered image for accurate contour detection
-          const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-          const filteredWithContour = combineImageData(grayscaleBase, contourData);
-          finalImageData = combineWithCannyEdges(filteredWithContour, edgeData, 'white', cannyOpacity);
-        } else if (brightnessData && edgeData) {
-          // 画像フィルタが無効の場合はグレースケール全機能合成
-          const grayscaleBase = convertToGrayscale(baseImageData);
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          const grayscaleWithContour = combineImageData(grayscaleBase, contourData);
-          finalImageData = combineWithCannyEdges(grayscaleWithContour, edgeData, 'white', cannyOpacity);
-        }
-        break;
 
       default:
         finalImageData = baseImageData;
@@ -796,11 +612,9 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const renderWithLayers = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    edgeData: ImageData | null,
     filteredImageData: ImageData | null,
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
-    cannyOpacity: number = 100,
     imageFilterOpacity: number = 100,
     frequencyData: FrequencyData | null = null
   ) => {
@@ -903,17 +717,6 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       }
     }
 
-    // 5. Edge Layer
-    if (displayOptions.layers.edge && edgeData) {
-      const edgeColor = displayOptions.grayscaleMode ||
-                      ((displayOptions.layers.contour || displayOptions.layers.filteredContour) &&
-                       !displayOptions.layers.original && !displayOptions.layers.filtered) ?
-                      'dark' : 'white';
-
-      baseImageData = hasBaseImage ?
-        combineWithCannyEdges(baseImageData, edgeData, edgeColor, cannyOpacity) :
-        combineWithCannyEdgesTransparent(baseImageData, edgeData, edgeColor, cannyOpacity);
-    }
 
     // 6. Frequency Layers
     if (frequencyData) {
@@ -952,7 +755,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     }
 
     ctx.putImageData(baseImageData, 0, 0);
-  }, [detectContoursWithThinning]);
+  }, [detectContoursWithThinning, detectContoursTransparentWithThinning]);
 
   return {
     canvasRef,

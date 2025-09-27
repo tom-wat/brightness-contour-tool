@@ -19,13 +19,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     DisplayMode.GRAYSCALE_WITH_CONTOUR,
   ];
 
-  const cannyDisplayModes = [
-    DisplayMode.CANNY_EDGE_ONLY,
-    DisplayMode.COLOR_WITH_CANNY,
-    DisplayMode.CONTOUR_WITH_CANNY,
-    DisplayMode.GRAYSCALE_WITH_CONTOUR_AND_CANNY,
-    DisplayMode.COLOR_WITH_CONTOUR_AND_CANNY,
-  ];
 
   const noiseReductionDisplayModes = [
     DisplayMode.DENOISED_ONLY,
@@ -33,9 +26,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     DisplayMode.DENOISED_CONTOUR_ONLY,
     DisplayMode.COLOR_WITH_DENOISED_CONTOUR,
     DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR,
-    DisplayMode.DENOISED_WITH_CANNY,
-    DisplayMode.ALL_WITH_DENOISING,
-    DisplayMode.ALL_WITH_DENOISING_GRAYSCALE,
   ];
 
   return (
@@ -62,13 +52,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               ))}
             </optgroup>
             
-            <optgroup label="Canny Edge Detection">
-              {cannyDisplayModes.map((mode) => (
-                <option key={mode} value={mode}>
-                  {DISPLAY_MODE_LABELS[mode]}
-                </option>
-              ))}
-            </optgroup>
             
             <optgroup label="Noise Reduction">
               {noiseReductionDisplayModes.map((mode) => (

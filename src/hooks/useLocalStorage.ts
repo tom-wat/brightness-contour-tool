@@ -38,9 +38,6 @@ export function useLocalStorage<T>(
 export class SettingsStorage {
   private static readonly KEYS = {
     CONTOUR_SETTINGS: 'brightness-contour-contour-settings',
-    CANNY_PARAMS: 'brightness-contour-canny-params',
-    CANNY_OPACITY: 'brightness-contour-canny-opacity',
-    EDGE_PROCESSING: 'brightness-contour-edge-processing',
     DISPLAY_MODE: 'brightness-contour-display-mode',
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
     ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
@@ -79,56 +76,6 @@ export class SettingsStorage {
     }
   }
 
-  static getCannyParams<T>(defaultValue: T): T {
-    try {
-      const stored = localStorage.getItem(this.KEYS.CANNY_PARAMS);
-      return stored ? JSON.parse(stored) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  static saveCannyParams<T>(params: T): void {
-    try {
-      localStorage.setItem(this.KEYS.CANNY_PARAMS, JSON.stringify(params));
-    } catch (error) {
-      console.warn('Failed to save Canny params:', error);
-    }
-  }
-
-  static getCannyOpacity(defaultValue: number): number {
-    try {
-      const stored = localStorage.getItem(this.KEYS.CANNY_OPACITY);
-      return stored ? parseInt(stored, 10) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  static saveCannyOpacity(opacity: number): void {
-    try {
-      localStorage.setItem(this.KEYS.CANNY_OPACITY, opacity.toString());
-    } catch (error) {
-      console.warn('Failed to save Canny opacity:', error);
-    }
-  }
-
-  static getEdgeProcessingSettings<T>(defaultValue: T): T {
-    try {
-      const stored = localStorage.getItem(this.KEYS.EDGE_PROCESSING);
-      return stored ? JSON.parse(stored) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  static saveEdgeProcessingSettings<T>(settings: T): void {
-    try {
-      localStorage.setItem(this.KEYS.EDGE_PROCESSING, JSON.stringify(settings));
-    } catch (error) {
-      console.warn('Failed to save edge processing settings:', error);
-    }
-  }
 
   static getDisplayMode<T>(defaultValue: T): T {
     try {

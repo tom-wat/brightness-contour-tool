@@ -17,11 +17,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
     }
   }, [handleFileUpload]);
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
-    }
+  const handleAreaClick = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        handleFileUpload(file);
+      }
+    };
+    input.click();
   }, [handleFileUpload]);
 
   React.useEffect(() => {
@@ -33,10 +39,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
   return (
     <div className="w-full p-6">
       <div
-        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-all duration-200 min-h-[80vh] flex flex-col justify-center bg-white"
+        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-all duration-200 min-h-[80vh] flex flex-col justify-center bg-white cursor-pointer"
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         onDragEnter={(e) => e.preventDefault()}
+        onClick={handleAreaClick}
       >
         {isLoading ? (
           <div className="flex flex-col items-center space-y-4">
@@ -58,17 +65,6 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
                 Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 4000×4000px)
               </p>
             </div>
-            <label className="inline-block">
-              <input
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                onChange={handleFileInput}
-                className="hidden"
-              />
-              <span className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors duration-200 cursor-pointer">
-                Choose File
-              </span>
-            </label>
           </div>
         )}
       </div>
@@ -79,23 +75,6 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
         </div>
       )}
 
-      {uploadedImage && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
-          <div className="flex items-center space-x-3">
-            <div className="text-green-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-green-800 font-medium">{uploadedImage.file.name}</p>
-              <p className="text-green-600 text-sm">
-                {uploadedImage.width} × {uploadedImage.height}px
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

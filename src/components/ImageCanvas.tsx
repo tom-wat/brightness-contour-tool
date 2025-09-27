@@ -7,11 +7,9 @@ import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
 interface ImageCanvasProps {
   originalImageData: ImageData;
   brightnessData: BrightnessData | null;
-  edgeData: ImageData | null;
   displayMode?: DisplayMode;
   displayOptions?: DisplayOptions;
   contourSettings: ContourSettings;
-  cannyOpacity: number;
   filteredImageData?: ImageData | null;
   imageFilterOpacity?: number;
   frequencyData?: FrequencyData | null;
@@ -27,11 +25,9 @@ interface ImageCanvasProps {
 export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   originalImageData,
   brightnessData,
-  edgeData,
   displayMode,
   displayOptions,
   contourSettings,
-  cannyOpacity,
   filteredImageData,
   imageFilterOpacity = 100,
   frequencyData,
@@ -59,19 +55,17 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
       renderWithLayers(
         originalImageData,
         brightnessData,
-        edgeData,
         filteredImageData || null,
         displayOptions,
         contourSettings,
-        cannyOpacity,
         imageFilterOpacity,
         frequencyData
       );
     } else if (displayMode) {
       // 従来のdisplayModeベースの表示（後方互換性）
-      renderImage(originalImageData, brightnessData, edgeData, displayMode, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity);
+      renderImage(originalImageData, brightnessData, displayMode, contourSettings, filteredImageData, imageFilterOpacity);
     }
-  }, [originalImageData, brightnessData, edgeData, displayMode, displayOptions, contourSettings, cannyOpacity, filteredImageData, imageFilterOpacity, frequencyData, frequencySettings, renderImage, renderWithLayers]);
+  }, [originalImageData, brightnessData, displayMode, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, frequencyData, frequencySettings, renderImage, renderWithLayers]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {
