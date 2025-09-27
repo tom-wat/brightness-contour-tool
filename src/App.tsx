@@ -34,9 +34,9 @@ function App() {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(
-    DEFAULT_FREQUENCY_SETTINGS
-  );
+  const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(() => {
+    return SettingsStorage.getFrequencySettings(DEFAULT_FREQUENCY_SETTINGS);
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
@@ -114,7 +114,7 @@ function App() {
 
   const handleFrequencySettingsChange = useCallback((settings: FrequencySettings) => {
     setFrequencySettings(settings);
-    // SettingsStorage.saveFrequencySettings(settings); // TODO: Add to localStorage
+    SettingsStorage.saveFrequencySettings(settings);
   }, []);
 
   const handleFrequencyApply = useCallback(() => {
@@ -135,11 +135,15 @@ function App() {
   }, [updateImageFilterSettings, clearImageFilterResult]);
 
   const handleApplyImageFilter = useCallback(() => {
-    if (uploadedImage && imageFilterSettings.enabled) {
+    if (uploadedImage) {
       console.log('Manually applying image filter');
+      // Apply時は自動的にenabledにする
+      if (!imageFilterSettings.enabled) {
+        updateImageFilterSettings({ enabled: true });
+      }
       processImageFilter(uploadedImage.originalImageData);
     }
-  }, [uploadedImage, imageFilterSettings.enabled, processImageFilter]);
+  }, [uploadedImage, imageFilterSettings.enabled, updateImageFilterSettings, processImageFilter]);
 
 
   const handleExport = useCallback(async (settings: ExportSettings) => {

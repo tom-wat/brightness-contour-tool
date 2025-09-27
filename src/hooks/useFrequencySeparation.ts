@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
 
+
 export const useFrequencySeparation = () => {
   const [frequencyData, setFrequencyData] = useState<FrequencyData>({
     lowFrequency: null,
@@ -36,6 +37,66 @@ export const useFrequencySeparation = () => {
 
     return kernel;
   }, []);
+
+  // Convert radius to kernel size (same as Image Filter)
+  const radiusToKernelSize = useCallback((radius: number): number => {
+    const kernelSize = Math.ceil(radius * 2) * 2 + 1;
+    return Math.max(3, Math.min(201, kernelSize)); // Same limits as Image Filter
+  }, []);
+
+  const applyMedianFilter = useCallback(async (imageData: ImageData, radius: number): Promise<ImageData> => {
+    // OpenCV.js availability check
+    if (!window.cv || typeof window.cv.Mat !== 'function') {
+      throw new Error('OpenCV.js is not loaded or not ready');
+    }
+
+    if (typeof window.cv.medianBlur !== 'function') {
+      throw new Error('OpenCV medianBlur function not available');
+    }
+
+    console.log(`OpenCV median filter: radius=${radius}, image=${imageData.width}x${imageData.height}`);
+
+    let src: OpenCVMat | null = null;
+    let dst: OpenCVMat | null = null;
+
+    try {
+      // Convert ImageData to OpenCV Mat
+      src = window.cv.matFromImageData(imageData);
+      dst = new window.cv.Mat();
+
+      // Calculate kernel size (same logic as Image Filter)
+      const kernelSize = radiusToKernelSize(radius);
+
+      // Apply OpenCV median filter
+      window.cv.medianBlur(src, dst, kernelSize);
+
+      // Convert back to ImageData
+      const canvas = document.createElement('canvas');
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+
+      window.cv.imshow(canvas, dst);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Unable to get canvas 2D context');
+      }
+
+      const resultImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      return resultImageData;
+    } catch (error) {
+      throw new Error(`OpenCV median filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Clean up OpenCV Mat objects
+      if (src && typeof src.delete === 'function') {
+        src.delete();
+      }
+      if (dst && typeof dst.delete === 'function') {
+        dst.delete();
+      }
+    }
+  }, [radiusToKernelSize]);
 
   const applyGaussianBlur = useCallback((imageData: ImageData, radius: number): ImageData => {
     if (!canvasRef.current) {
@@ -110,13 +171,15 @@ export const useFrequencySeparation = () => {
     return new ImageData(result, width, height);
   }, [createGaussianKernel]);
 
-  const separateFrequencies = useCallback((
+  const separateFrequencies = useCallback(async (
     imageData: ImageData,
     settings: FrequencySettings
-  ): FrequencyData => {
+  ): Promise<FrequencyData> => {
 
-    // Apply Gaussian blur to get low frequency component
-    const lowFrequency = applyGaussianBlur(imageData, settings.blurRadius);
+    // Apply selected filter to get low frequency component
+    const lowFrequency = settings.filterMethod === 'gaussian'
+      ? applyGaussianBlur(imageData, settings.blurRadius)
+      : await applyMedianFilter(imageData, settings.blurRadius);
 
     const { width, height } = imageData;
     const original = imageData.data;
@@ -171,7 +234,7 @@ export const useFrequencySeparation = () => {
       highFrequencyDark: new ImageData(highFreqDarkData, width, height),
       highFrequencyCombined: new ImageData(highFreqCombinedData, width, height),
     };
-  }, [applyGaussianBlur]);
+  }, [applyGaussianBlur, applyMedianFilter]);
 
   const processFrequencySeparation = useCallback(async (
     imageData: ImageData,
@@ -180,13 +243,11 @@ export const useFrequencySeparation = () => {
     setIsProcessing(true);
 
     try {
-      // Use setTimeout to allow UI to update
-      const result = await new Promise<FrequencyData>((resolve) => {
-        setTimeout(() => {
-          const separated = separateFrequencies(imageData, settings);
-          resolve(separated);
-        }, 0);
-      });
+      // Short delay to ensure UI update
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Call async separateFrequencies directly
+      const result = await separateFrequencies(imageData, settings);
 
       setFrequencyData(result);
     } catch (error) {

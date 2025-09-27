@@ -41,6 +41,8 @@ export class SettingsStorage {
     DISPLAY_MODE: 'brightness-contour-display-mode',
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
     ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
+    IMAGE_FILTER_SETTINGS: 'brightness-contour-image-filter-settings',
+    FREQUENCY_SETTINGS: 'brightness-contour-frequency-settings',
   } as const;
 
   static getContourSettings<T>(defaultValue: T): T {
@@ -125,6 +127,40 @@ export class SettingsStorage {
       localStorage.setItem(this.KEYS.ALL_FREQUENCY_LAYERS_STATE, JSON.stringify(state));
     } catch (error) {
       console.warn('Failed to save all frequency layers state:', error);
+    }
+  }
+
+  static getImageFilterSettings<T>(defaultValue: T): T {
+    try {
+      const stored = localStorage.getItem(this.KEYS.IMAGE_FILTER_SETTINGS);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static saveImageFilterSettings<T>(settings: T): void {
+    try {
+      localStorage.setItem(this.KEYS.IMAGE_FILTER_SETTINGS, JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Failed to save image filter settings:', error);
+    }
+  }
+
+  static getFrequencySettings<T>(defaultValue: T): T {
+    try {
+      const stored = localStorage.getItem(this.KEYS.FREQUENCY_SETTINGS);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static saveFrequencySettings<T>(settings: T): void {
+    try {
+      localStorage.setItem(this.KEYS.FREQUENCY_SETTINGS, JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Failed to save frequency settings:', error);
     }
   }
 

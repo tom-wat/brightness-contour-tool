@@ -4,6 +4,7 @@ import {
   ImageFilterResult,
   DEFAULT_IMAGE_FILTER_SETTINGS
 } from '../types/ImageFilterTypes';
+import { SettingsStorage } from './useLocalStorage';
 
 // OpenCV.js型定義のインポート（グローバル型を使用）
 declare global {
@@ -25,7 +26,10 @@ declare global {
 }
 
 export const useImageFilter = () => {
-  const [settings, setSettings] = useState<ImageFilterSettings>(DEFAULT_IMAGE_FILTER_SETTINGS);
+  // Load settings from localStorage on initialization
+  const [settings, setSettings] = useState<ImageFilterSettings>(() => {
+    return SettingsStorage.getImageFilterSettings(DEFAULT_IMAGE_FILTER_SETTINGS);
+  });
   const [result, setResult] = useState<ImageFilterResult>({
     filteredImageData: null,
     processing: false,
@@ -35,46 +39,52 @@ export const useImageFilter = () => {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const applyMedianFilter = useCallback((src: OpenCVMat, kernelSize: number): OpenCVMat => {
+  // Convert radius to kernel size (always odd)
+  const radiusToKernelSize = useCallback((radius: number): number => {
+    const kernelSize = Math.ceil(radius * 2) * 2 + 1;
+    return Math.max(3, Math.min(201, kernelSize)); // Clamp to valid range (max 201 for radius 100)
+  }, []);
+
+  const applyMedianFilter = useCallback((src: OpenCVMat, radius: number): OpenCVMat => {
     const dst = new window.cv.Mat();
-    
+
     try {
       if (typeof window.cv.medianBlur !== 'function') {
         throw new Error('medianBlur function not available');
       }
+      const kernelSize = radiusToKernelSize(radius);
       window.cv.medianBlur(src, dst, kernelSize);
     } catch (error) {
       dst.delete();
       throw error;
     }
-    
+
     return dst;
-  }, []);
+  }, [radiusToKernelSize]);
 
 
-  const applyGaussianFilter = useCallback((src: OpenCVMat, kernelSize: number, sigmaX: number, sigmaY: number): OpenCVMat => {
+  const applyGaussianFilter = useCallback((src: OpenCVMat, radius: number): OpenCVMat => {
     const dst = new window.cv.Mat();
-    
+
     try {
       if (typeof window.cv.GaussianBlur !== 'function') {
         throw new Error('GaussianBlur function not available');
       }
 
-      // パラメータ検証と調整
-      const validKernelSize = Math.max(3, Math.min(15, kernelSize));
-      const oddKernel = validKernelSize % 2 === 0 ? validKernelSize + 1 : validKernelSize;
-      const validSigmaX = Math.max(0.1, Math.min(5.0, sigmaX));
-      const validSigmaY = Math.max(0.1, Math.min(5.0, sigmaY));
+      // Convert radius to kernel size and calculate sigma (same as Frequency Separation)
+      const kernelSize = radiusToKernelSize(radius);
+      const sigma = radius / 3; // Same calculation as Frequency Separation
+      const validSigma = Math.max(0.1, Math.min(50.0, sigma));
 
-      console.log(`Gaussian filter params: kernel=${oddKernel}, sigmaX=${validSigmaX}, sigmaY=${validSigmaY}`);
+      console.log(`Gaussian filter params: radius=${radius}, kernel=${kernelSize}, sigma=${validSigma}`);
 
       // 画像の形式をチェック
       if (!src || src.cols <= 0 || src.rows <= 0) {
         throw new Error('Invalid source image dimensions');
       }
 
-      const ksize = new window.cv.Size(oddKernel, oddKernel);
-      window.cv.GaussianBlur(src, dst, ksize, validSigmaX, validSigmaY);
+      const ksize = new window.cv.Size(kernelSize, kernelSize);
+      window.cv.GaussianBlur(src, dst, ksize, validSigma, validSigma);
 
       // 結果の検証
       if (dst.rows <= 0 || dst.cols <= 0) {
@@ -84,9 +94,9 @@ export const useImageFilter = () => {
       dst.delete();
       throw error;
     }
-    
+
     return dst;
-  }, []);
+  }, [radiusToKernelSize]);
 
   const processImage = useCallback(async (imageData: ImageData | null = null) => {
     if (!imageData) {
@@ -162,6 +172,9 @@ export const useImageFilter = () => {
     }));
 
     try {
+      // Short delay to ensure UI update
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const startTime = performance.now();
 
       // Create OpenCV Mat from ImageData
@@ -179,7 +192,7 @@ export const useImageFilter = () => {
         switch (settings.method) {
           case 'median':
             try {
-              processed = applyMedianFilter(src, settings.medianParams.kernelSize);
+              processed = applyMedianFilter(src, settings.medianParams.radius);
             } catch (error) {
               throw new Error(`Median filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
@@ -188,9 +201,7 @@ export const useImageFilter = () => {
             try {
               processed = applyGaussianFilter(
                 src,
-                settings.gaussianParams.kernelSize,
-                settings.gaussianParams.sigmaX,
-                settings.gaussianParams.sigmaY
+                settings.gaussianParams.radius
               );
             } catch (error) {
               throw new Error(`Gaussian filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -253,11 +264,15 @@ export const useImageFilter = () => {
   }, [settings, applyMedianFilter, applyGaussianFilter]);
 
   const updateSettings = useCallback((newSettings: Partial<ImageFilterSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
+    const updatedSettings = { ...settings, ...newSettings };
+    setSettings(updatedSettings);
+    // Save to localStorage
+    SettingsStorage.saveImageFilterSettings(updatedSettings);
+  }, [settings]);
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_IMAGE_FILTER_SETTINGS);
+    SettingsStorage.saveImageFilterSettings(DEFAULT_IMAGE_FILTER_SETTINGS);
   }, []);
 
   const clearResult = useCallback(() => {
