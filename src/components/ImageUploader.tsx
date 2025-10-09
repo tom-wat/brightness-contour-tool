@@ -62,7 +62,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
                 Drop image here or click to select
               </p>
               <p className="text-sm text-gray-500">
-                Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 4000×4000px)
+                Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 8000×8000px)
               </p>
             </div>
           </div>
