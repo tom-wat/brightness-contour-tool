@@ -722,34 +722,43 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     if (frequencyData) {
       // Low Frequency Layer (ベースとして使用)
       if (displayOptions.layers.lowFrequency && frequencyData.lowFrequency) {
+        const lowFreqToUse = displayOptions.grayscaleMode ?
+          convertToGrayscale(frequencyData.lowFrequency) :
+          frequencyData.lowFrequency;
         baseImageData = hasBaseImage ?
-          combineImageData(baseImageData, frequencyData.lowFrequency) :
-          combineImageDataTransparent(baseImageData, frequencyData.lowFrequency);
+          combineImageData(baseImageData, lowFreqToUse) :
+          combineImageDataTransparent(baseImageData, lowFreqToUse);
       }
 
       // High Frequency Bright Layer
       if (displayOptions.layers.highFrequencyBright && frequencyData.highFrequencyBright) {
+        const highFreqBrightToUse = displayOptions.grayscaleMode ?
+          convertToGrayscale(frequencyData.highFrequencyBright) :
+          frequencyData.highFrequencyBright;
         if (displayOptions.layers.lowFrequency) {
           // Low Frequencyがオンの場合: Linear Light合成
-          baseImageData = combineWithLinearLight(baseImageData, frequencyData.highFrequencyBright);
+          baseImageData = combineWithLinearLight(baseImageData, highFreqBrightToUse);
         } else {
           // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
           baseImageData = hasBaseImage ?
-            combineImageData(baseImageData, frequencyData.highFrequencyBright) :
-            combineImageDataTransparent(baseImageData, frequencyData.highFrequencyBright);
+            combineImageData(baseImageData, highFreqBrightToUse) :
+            combineImageDataTransparent(baseImageData, highFreqBrightToUse);
         }
       }
 
       // High Frequency Dark Layer
       if (displayOptions.layers.highFrequencyDark && frequencyData.highFrequencyDark) {
+        const highFreqDarkToUse = displayOptions.grayscaleMode ?
+          convertToGrayscale(frequencyData.highFrequencyDark) :
+          frequencyData.highFrequencyDark;
         if (displayOptions.layers.lowFrequency) {
           // Low Frequencyがオンの場合: Linear Light合成
-          baseImageData = combineWithLinearLight(baseImageData, frequencyData.highFrequencyDark);
+          baseImageData = combineWithLinearLight(baseImageData, highFreqDarkToUse);
         } else {
           // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
           baseImageData = hasBaseImage ?
-            combineImageData(baseImageData, frequencyData.highFrequencyDark) :
-            combineImageDataTransparent(baseImageData, frequencyData.highFrequencyDark);
+            combineImageData(baseImageData, highFreqDarkToUse) :
+            combineImageDataTransparent(baseImageData, highFreqDarkToUse);
         }
       }
     }

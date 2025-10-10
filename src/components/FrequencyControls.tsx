@@ -89,7 +89,7 @@ export const FrequencyControls: React.FC<FrequencyControlsProps> = ({
             </label>
             <input
               type="range"
-              min="0"
+              min="1"
               max="3"
               step="1"
               value={settings.brightIntensity}
@@ -105,7 +105,7 @@ export const FrequencyControls: React.FC<FrequencyControlsProps> = ({
             </label>
             <input
               type="range"
-              min="0"
+              min="1"
               max="3"
               step="1"
               value={settings.darkIntensity}

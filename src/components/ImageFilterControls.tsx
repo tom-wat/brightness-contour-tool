@@ -87,7 +87,7 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Blur Radius: {settings.gaussianParams.radius.toFixed(1)}px
+                Blur Radius: {settings.gaussianParams.radius.toFixed(0)}px
               </label>
               <input
                 type="range"
@@ -108,7 +108,7 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
         {settings.method === 'median' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filter Radius: {settings.medianParams.radius.toFixed(1)}px
+              Filter Radius: {settings.medianParams.radius.toFixed(0)}px
             </label>
             <input
               type="range"
