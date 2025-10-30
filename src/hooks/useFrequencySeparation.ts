@@ -217,10 +217,11 @@ export const useFrequencySeparation = () => {
       highFreqDarkData[i + 2] = Math.round(Math.max(0, 128 - darkB * settings.darkIntensity / 2));
       highFreqDarkData[i + 3] = original[i + 3] || 255;
 
-      // Combined high frequency
-      const combinedR = Math.max(0, Math.min(255, 128 + rDiff));
-      const combinedG = Math.max(0, Math.min(255, 128 + gDiff));
-      const combinedB = Math.max(0, Math.min(255, 128 + bDiff));
+      // Combined high frequency (Linear Light合成用: 128 + diff/2)
+      // Linear Light: Base + 2*(Overlay-128) = Low + 2*(128+diff/2-128) = Low + diff = Original
+      const combinedR = Math.max(0, Math.min(255, 128 + rDiff / 2));
+      const combinedG = Math.max(0, Math.min(255, 128 + gDiff / 2));
+      const combinedB = Math.max(0, Math.min(255, 128 + bDiff / 2));
 
       highFreqCombinedData[i] = Math.round(combinedR);
       highFreqCombinedData[i + 1] = Math.round(combinedG);

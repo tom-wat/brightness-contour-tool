@@ -761,6 +761,22 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
             combineImageDataTransparent(baseImageData, highFreqDarkToUse);
         }
       }
+
+      // High Frequency Combined Layer
+      if (displayOptions.layers.highFrequencyCombined && frequencyData.highFrequencyCombined) {
+        const highFreqCombinedToUse = displayOptions.grayscaleMode ?
+          convertToGrayscale(frequencyData.highFrequencyCombined) :
+          frequencyData.highFrequencyCombined;
+        if (displayOptions.layers.lowFrequency) {
+          // Low Frequencyがオンの場合: Linear Light合成
+          baseImageData = combineWithLinearLight(baseImageData, highFreqCombinedToUse);
+        } else {
+          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
+          baseImageData = hasBaseImage ?
+            combineImageData(baseImageData, highFreqCombinedToUse) :
+            combineImageDataTransparent(baseImageData, highFreqCombinedToUse);
+        }
+      }
     }
 
     ctx.putImageData(baseImageData, 0, 0);

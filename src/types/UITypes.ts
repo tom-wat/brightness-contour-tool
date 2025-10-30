@@ -35,6 +35,7 @@ export interface DisplayLayers {
   lowFrequency: boolean;
   highFrequencyBright: boolean;
   highFrequencyDark: boolean;
+  highFrequencyCombined: boolean;
 }
 
 export interface DisplayOptions {
@@ -51,6 +52,7 @@ export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
     lowFrequency: true,
     highFrequencyBright: true,
     highFrequencyDark: true,
+    highFrequencyCombined: false,
   },
   grayscaleMode: false,
 };
