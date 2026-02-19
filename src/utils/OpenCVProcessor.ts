@@ -107,52 +107,64 @@ export class OpenCVProcessor {
 
       console.log('🔄 Starting OpenCV.js loading process...');
 
-      // OpenCV.jsが既に読み込まれているかチェック
-      if (window.cv && window.cv.Mat) {
-        console.log('✅ OpenCV.js already loaded');
+      // pollInterval を onReady より前に宣言（TDZ 回避）
+      let pollInterval: ReturnType<typeof setInterval> | undefined;
+
+      const timeoutId = setTimeout(() => {
+        if (pollInterval !== undefined) clearInterval(pollInterval);
+        console.error('❌ OpenCV.js loading timeout after 30 seconds');
+        this.status.isLoading = false;
+        this.status.error = 'OpenCV.js loading timeout after 30 seconds';
+        reject(new Error('OpenCV.js loading timeout'));
+      }, 30000);
+
+      const onReady = () => {
+        clearTimeout(timeoutId);
+        if (pollInterval !== undefined) clearInterval(pollInterval);
+        console.log('✅ OpenCV.js loaded successfully (onRuntimeInitialized)');
         this.status.isLoaded = true;
         this.status.isLoading = false;
         resolve();
+      };
+
+      // window.cv が現れるのを待ち、現れたら onRuntimeInitialized をフック
+      // または Mat が既に利用可能ならそのまま完了とする
+      const hookOrResolve = () => {
+        if (window.cv.Mat) {
+          // WASM 初期化済み
+          onReady();
+        } else {
+          // WASM 初期化前: コールバックをフック（既存のコールバックを保持）
+          const original = (window.cv as unknown as Record<string, unknown>)['onRuntimeInitialized'] as (() => void) | undefined;
+          (window.cv as unknown as Record<string, unknown>)['onRuntimeInitialized'] = () => {
+            if (original) original();
+            onReady();
+          };
+          console.log('⏳ Hooked onRuntimeInitialized, waiting for WASM...');
+        }
+      };
+
+      // window.cv が既に存在する場合は即座にフック
+      if (window.cv) {
+        hookOrResolve();
         return;
       }
 
-      // OpenCV.jsの読み込み完了を待つ
+      // window.cv が現れるまでポーリング
       let checkCount = 0;
-      const maxChecks = 300; // 30秒 (100ms * 300)
-
-      const checkInterval = setInterval(() => {
+      pollInterval = setInterval(() => {
         checkCount++;
 
-        if (window.cv && window.cv.Mat) {
-          console.log(`✅ OpenCV.js loaded successfully after ${checkCount * 100}ms`);
-          clearInterval(checkInterval);
-          this.status.isLoaded = true;
-          this.status.isLoading = false;
-          resolve();
+        if (window.cv) {
+          if (pollInterval !== undefined) clearInterval(pollInterval);
+          hookOrResolve();
           return;
         }
 
-        // 進捗ログ（5秒毎）
         if (checkCount % 50 === 0) {
-          console.log(`⏳ Still waiting for OpenCV.js... (${checkCount * 100}ms elapsed)`);
-        }
-
-        // タイムアウト処理
-        if (checkCount >= maxChecks) {
-          console.error('❌ OpenCV.js loading timeout after 30 seconds');
-          clearInterval(checkInterval);
-          this.status.isLoading = false;
-          this.status.error = 'OpenCV.js loading timeout after 30 seconds';
-          reject(new Error('OpenCV.js loading timeout'));
+          console.log(`⏳ Still waiting for window.cv... (${checkCount * 100}ms elapsed)`);
         }
       }, 100);
-
-      // 初期状態を確認
-      setTimeout(() => {
-        if (!window.cv) {
-          console.warn('⚠️  window.cv not found after initial delay - script may have failed to load');
-        }
-      }, 1000);
     });
   }
 

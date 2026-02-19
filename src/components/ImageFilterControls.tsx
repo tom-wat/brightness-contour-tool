@@ -10,6 +10,9 @@ interface ImageFilterControlsProps {
   processing: boolean;
   error: string | null;
   onApplyImageFilter: () => void;
+  openCVLoaded: boolean;
+  openCVLoading: boolean;
+  openCVError: string | null;
 }
 
 export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
@@ -17,7 +20,10 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
   onSettingsChange,
   processing,
   error,
-  onApplyImageFilter
+  onApplyImageFilter,
+  openCVLoaded,
+  openCVLoading,
+  openCVError
 }) => {
   const handleMethodChange = (method: ImageFilterMethod) => {
     // methodの変更時は自動的に有効化
@@ -33,6 +39,18 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
         <h3 className="font-semibold text-gray-800 text-base">Image Filter</h3>
       </div>
 
+      {openCVLoading && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+          <p className="text-sm text-yellow-700">OpenCV.js loading...</p>
+        </div>
+      )}
+
+      {!openCVLoading && openCVError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <p className="text-sm text-red-600">OpenCV.js failed to load. Please reload the page.</p>
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3">
           <p className="text-sm text-red-600">{error}</p>
@@ -43,7 +61,7 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
       <div>
         <button
           onClick={onApplyImageFilter}
-          disabled={processing}
+          disabled={processing || !openCVLoaded}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center"
         >
           {processing && (

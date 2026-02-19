@@ -5,6 +5,7 @@ import {
   DEFAULT_IMAGE_FILTER_SETTINGS
 } from '../types/ImageFilterTypes';
 import { SettingsStorage } from './useLocalStorage';
+import { openCVProcessor } from '../utils/OpenCVProcessor';
 
 // OpenCV.js型定義のインポート（グローバル型を使用）
 declare global {
@@ -36,8 +37,31 @@ export const useImageFilter = () => {
     error: null,
     processingTime: 0
   });
+  const [openCVLoaded, setOpenCVLoaded] = useState(false);
+  const [openCVLoading, setOpenCVLoading] = useState(true);
+  const [openCVError, setOpenCVError] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // OpenCV.jsの読み込み完了を待つ（useCannyDetectionと同じパターン）
+  useEffect(() => {
+    const checkOpenCVStatus = async () => {
+      setOpenCVLoading(true);
+      setOpenCVError(null);
+      try {
+        await openCVProcessor.ensureLoaded();
+        setOpenCVLoaded(true);
+      } catch (err) {
+        console.warn('OpenCV.js loading failed:', err);
+        setOpenCVLoaded(false);
+        setOpenCVError(err instanceof Error ? err.message : 'OpenCV.js failed to load');
+      } finally {
+        setOpenCVLoading(false);
+      }
+    };
+
+    checkOpenCVStatus();
+  }, []);
 
   // Convert radius to kernel size (always odd)
   const radiusToKernelSize = useCallback((radius: number): number => {
@@ -111,7 +135,7 @@ export const useImageFilter = () => {
     });
 
     // OpenCV.jsの読み込み確認
-    if (!window.cv || typeof window.cv.Mat !== 'function') {
+    if (!openCVLoaded) {
       setResult(prev => ({
         ...prev,
         error: 'OpenCV.js is not loaded or not ready',
@@ -261,7 +285,7 @@ export const useImageFilter = () => {
         }));
       }
     }
-  }, [settings, applyMedianFilter, applyGaussianFilter]);
+  }, [settings, applyMedianFilter, applyGaussianFilter, openCVLoaded]);
 
   const updateSettings = useCallback((newSettings: Partial<ImageFilterSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
@@ -296,6 +320,9 @@ export const useImageFilter = () => {
   return {
     settings,
     result,
+    openCVLoaded,
+    openCVLoading,
+    openCVError,
     processImage,
     updateSettings,
     resetSettings,
