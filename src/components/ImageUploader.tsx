@@ -37,9 +37,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
   }, [uploadedImage, onImageUpload]);
 
   return (
-    <div className="w-full p-6">
+    <div className="w-full h-full flex flex-col p-6">
       <div
-        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-all duration-200 min-h-[80vh] flex flex-col justify-center bg-white cursor-pointer"
+        className="border-2 border-dashed border-gray-300 text-center hover:border-gray-400 transition-all duration-200 flex-1 flex flex-col justify-center bg-white cursor-pointer"
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         onDragEnter={(e) => e.preventDefault()}
