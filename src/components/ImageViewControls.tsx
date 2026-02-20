@@ -16,7 +16,7 @@ export const ImageViewControls: React.FC<ImageViewControlsProps> = ({
   onActualSize,
 }) => {
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-3">
+    <div className="bg-white border-b border-gray-100 px-6 py-3">
       <div className="flex items-center justify-end">
         <div className="flex items-center space-x-4">
           {/* Zoom Level Display */}
@@ -48,7 +48,7 @@ export const ImageViewControls: React.FC<ImageViewControlsProps> = ({
           </div>
 
           {/* Preset Zoom Controls */}
-          <div className="flex items-center space-x-2 border-l border-gray-200 pl-4">
+          <div className="flex items-center space-x-2 border-l border-gray-100 pl-4">
             <button
               onClick={() => onFitToScreen()}
               className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"

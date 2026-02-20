@@ -30,7 +30,7 @@ export const ContourControls: React.FC<ContourControlsProps> = ({
 
 
   return (
-    <div className="p-6 border-b border-gray-200">
+    <div className="p-6 border-b border-gray-100">
       <h3 className="text-md font-semibold text-gray-900 mb-4">Contour Settings</h3>
       
       <div className="space-y-4">

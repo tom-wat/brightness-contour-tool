@@ -31,7 +31,7 @@ export const FrequencyControls: React.FC<FrequencyControlsProps> = ({
   };
 
   return (
-    <div className="p-6 border-b border-gray-200 space-y-4">
+    <div className="p-6 border-b border-gray-100 space-y-4">
       <div>
         <h3 className="font-semibold text-gray-800 text-base">Frequency Separation</h3>
       </div>

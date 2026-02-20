@@ -182,7 +182,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-100">
         <div className="px-6 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-900">
             Brightness Contour
@@ -206,7 +206,7 @@ function App() {
         <main className="flex flex-1 overflow-hidden">
           <div className="flex flex-1 overflow-hidden">
             {/* Left Sidebar - Controls */}
-            <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <div className="w-80 bg-white border-r border-gray-100 flex flex-col">
               <div className="flex-1 overflow-y-auto">
                 <ContourControls
                   contourSettings={contourSettings}

@@ -57,9 +57,9 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+    <div className="w-80 bg-white border-l border-gray-100 flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 space-y-4">
+        <div className="p-6 border-b border-gray-100 space-y-4">
           <div>
             <h3 className="font-semibold text-gray-800 text-base mb-4">Display Layers</h3>
           </div>

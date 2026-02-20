@@ -132,7 +132,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
     <div className="h-full flex justify-center p-6">
       <div
         ref={containerRef}
-        className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-full min-h-[400px] w-full max-w-[1200px]"
+        className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-100 h-full min-h-[400px] w-full max-w-[1200px]"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
