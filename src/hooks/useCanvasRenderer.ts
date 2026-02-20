@@ -705,15 +705,6 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         baseImageData = hasBaseImage ? 
           combineImageData(baseImageData, filteredContourData) :
           combineImageDataTransparent(baseImageData, filteredContourData);
-      } else {
-        // フィルター画像がない場合は元画像のcontourを表示
-        const contourData = hasBaseImage ? 
-          detectContoursWithThinning(brightnessData, contourSettings) :
-          detectContoursTransparent(brightnessData, contourSettings);
-        
-        baseImageData = hasBaseImage ? 
-          combineImageData(baseImageData, contourData) :
-          combineImageDataTransparent(baseImageData, contourData);
       }
     }
 
