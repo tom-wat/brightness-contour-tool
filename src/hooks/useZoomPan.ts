@@ -78,8 +78,9 @@ export const useZoomPan = (
     
     if (!cWidth || !cHeight || !imageWidth || !imageHeight) return;
 
+    const verticalPadding = 32; // 上下各16pxの余白
     const scaleX = cWidth / imageWidth;
-    const scaleY = cHeight / imageHeight;
+    const scaleY = (cHeight - verticalPadding) / imageHeight;
     const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
 
     setZoomPanState({
