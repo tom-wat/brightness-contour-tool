@@ -7,9 +7,11 @@ interface ImageUploaderProps {
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
   const { uploadedImage, isLoading, error, handleFileUpload } = useImageUpload();
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDraggingOver(false);
     const files = Array.from(e.dataTransfer.files);
     const imageFile = files.find(file => file.type.startsWith('image/'));
     if (imageFile) {
@@ -39,10 +41,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
   return (
     <div className="w-full h-full flex flex-col p-6">
       <div
-        className="border-2 border-dashed border-gray-300 text-center hover:border-gray-400 transition-all duration-200 flex-1 flex flex-col justify-center bg-white cursor-pointer"
+        className={`border-2 border-dashed text-center transition-all duration-200 flex-1 flex flex-col justify-center bg-white cursor-pointer rounded-lg ${isDraggingOver ? 'border-blue-400' : 'border-gray-300 hover:border-gray-400'}`}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
-        onDragEnter={(e) => e.preventDefault()}
+        onDragEnter={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+        onDragLeave={() => setIsDraggingOver(false)}
         onClick={handleAreaClick}
       >
         {isLoading ? (

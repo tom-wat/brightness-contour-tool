@@ -184,17 +184,12 @@ function App() {
     <div className="h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-100">
         <div className="px-6 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">
+          <h1
+            className={`text-lg font-bold text-gray-900 ${uploadedImage ? 'cursor-pointer hover:text-gray-600 transition-colors duration-200' : ''}`}
+            onClick={() => uploadedImage && setUploadedImage(null)}
+          >
             Brightness Contour
           </h1>
-          {uploadedImage && (
-            <button
-              onClick={() => setUploadedImage(null)}
-              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded border border-gray-300 transition-colors duration-200"
-            >
-              Select Another Image
-            </button>
-          )}
         </div>
       </header>
 
