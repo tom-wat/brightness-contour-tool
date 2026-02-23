@@ -268,9 +268,19 @@ export const useFrequencySeparation = () => {
     }
   }, [separateFrequencies]);
 
+  const clearFrequencyData = useCallback(() => {
+    setFrequencyData({
+      lowFrequency: null,
+      highFrequencyBright: null,
+      highFrequencyDark: null,
+      highFrequencyCombined: null,
+    });
+  }, []);
+
   return {
     frequencyData,
     isProcessing,
     processFrequencySeparation,
+    clearFrequencyData,
   };
 };

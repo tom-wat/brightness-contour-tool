@@ -41,7 +41,7 @@ function App() {
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
   const { settings: imageFilterSettings, result: imageFilterResult, openCVLoaded: imageFilterOpenCVLoaded, openCVLoading: imageFilterOpenCVLoading, openCVError: imageFilterOpenCVError, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
-  const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation } = useFrequencySeparation();
+  const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation, clearFrequencyData } = useFrequencySeparation();
   const { exportCurrentView } = useImageExport();
   
   // ズーム・パン機能
@@ -67,11 +67,12 @@ function App() {
   const handleImageUpload = useCallback((result: ImageUploadResult) => {
     // 新しい画像を設定
     setUploadedImage(result);
-    
+
     // すべての処理結果をリセット
     clearAnalysis(); // 輝度解析結果をクリア
     clearImageFilterResult(); // 画像フィルタ結果をクリア
-    
+    clearFrequencyData(); // 周波数分離結果をクリア
+
     // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
 
@@ -79,7 +80,7 @@ function App() {
     resetZoom();
     // 自動フィット有効化
     setShouldAutoFit(true);
-  }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult]);
+  }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult, clearFrequencyData]);
 
   const handleContainerResize = useCallback((width: number, height: number) => {
     // コンテナサイズを保存
