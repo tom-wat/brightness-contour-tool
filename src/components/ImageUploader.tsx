@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useImageUpload } from '../hooks/useImageUpload';
 
 interface ImageUploaderProps {
@@ -8,6 +8,7 @@ interface ImageUploaderProps {
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
   const { uploadedImage, isLoading, error, handleFileUpload } = useImageUpload();
   const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -20,17 +21,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
   }, [handleFileUpload]);
 
   const handleAreaClick = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        handleFileUpload(file);
-      }
-    };
-    input.click();
-  }, [handleFileUpload]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  }, []);
 
   React.useEffect(() => {
     if (uploadedImage) {
@@ -38,8 +33,22 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
     }
   }, [uploadedImage, onImageUpload]);
 
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  }, [handleFileUpload]);
+
   return (
     <div className="w-full h-full flex flex-col p-6">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
       <div
         className={`border-2 border-dashed text-center transition-all duration-200 flex-1 flex flex-col justify-center bg-white cursor-pointer rounded-lg ${isDraggingOver ? 'border-blue-400' : 'border-gray-300 hover:border-gray-400'}`}
         onDrop={handleDrop}
