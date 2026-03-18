@@ -71,10 +71,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
             </div>
             <div className="space-y-2">
               <p className="text-lg font-medium text-gray-900">
-                Drop image here or click to select
+                <span className="hidden lg:inline">Drop image here or click to select</span>
+                <span className="lg:hidden">Tap to select image</span>
               </p>
               <p className="text-sm text-gray-500">
-                Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 8000×8000px)
+                <span className="hidden lg:inline">Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 8000×8000px)</span>
+                <span className="lg:hidden">
+                  Supports: JPEG, PNG, GIF, WebP<br />
+                  (Max: 10MB, 8000×8000px)
+                </span>
               </p>
             </div>
           </div>

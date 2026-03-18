@@ -209,7 +209,7 @@ export const useZoomPan = (
 
       if (lastPinchDistance.current !== null) {
         const rawRatio = distance / lastPinchDistance.current;
-        const PINCH_SENSITIVITY = 2.2;
+        const PINCH_SENSITIVITY = 1.8;
         const ratio = 1 + (rawRatio - 1) * PINCH_SENSITIVITY;
         setZoomPanState(prev => {
           const newZoom = Math.max(ZOOM_MIN, Math.min(prev.zoom * ratio, ZOOM_MAX));
