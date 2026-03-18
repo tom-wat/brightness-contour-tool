@@ -20,6 +20,14 @@ interface ImageCanvasProps {
   onMouseUp?: () => void;
   onWheel?: (e: React.WheelEvent) => void;
   onContainerResize?: (width: number, height: number) => void;
+  zoomLevel?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onFitToScreen?: (w?: number, h?: number) => void;
+  onActualSize?: () => void;
+  onNativeTouchStart?: (e: TouchEvent) => void;
+  onNativeTouchMove?: (e: TouchEvent, rect: DOMRect) => void;
+  onNativeTouchEnd?: (e: TouchEvent) => void;
 }
 
 export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
@@ -38,6 +46,14 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   onMouseUp,
   onWheel,
   onContainerResize,
+  zoomLevel,
+  onZoomIn,
+  onZoomOut,
+  onFitToScreen,
+  onActualSize,
+  onNativeTouchStart,
+  onNativeTouchMove,
+  onNativeTouchEnd,
 }, ref) => {
   const { canvasRef, renderImage, renderWithLayers } = useCanvasRenderer();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,6 +105,30 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
     };
   }, [onContainerResize]);
 
+  // Touch event listeners (non-passive for preventDefault)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (!onNativeTouchStart && !onNativeTouchMove && !onNativeTouchEnd) return;
+
+    const container = containerRef.current;
+
+    const touchStartHandler = (e: TouchEvent) => onNativeTouchStart?.(e);
+    const touchMoveHandler = (e: TouchEvent) => {
+      onNativeTouchMove?.(e, container.getBoundingClientRect());
+    };
+    const touchEndHandler = (e: TouchEvent) => onNativeTouchEnd?.(e);
+
+    container.addEventListener('touchstart', touchStartHandler, { passive: false });
+    container.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    container.addEventListener('touchend', touchEndHandler);
+
+    return () => {
+      container.removeEventListener('touchstart', touchStartHandler);
+      container.removeEventListener('touchmove', touchMoveHandler);
+      container.removeEventListener('touchend', touchEndHandler);
+    };
+  }, [onNativeTouchStart, onNativeTouchMove, onNativeTouchEnd]);
+
   // Wheel event listener with non-passive option
   useEffect(() => {
     if (!containerRef.current || !onWheel) return;
@@ -129,10 +169,10 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   }, [onWheel]);
 
   return (
-    <div className="h-full flex justify-center p-6">
+    <div className="h-full flex justify-center p-2 lg:p-6">
       <div
         ref={containerRef}
-        className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-100 h-full min-h-[400px] w-full max-w-[1200px]"
+        className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-100 h-full min-h-[200px] lg:min-h-[400px] w-full max-w-[1200px]"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -141,7 +181,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
         <canvas
           ref={canvasRef}
           className="absolute touch-none"
-          style={{ 
+          style={{
             cursor: onMouseDown ? 'grab' : 'default',
             transform: transform || 'none',
             transformOrigin: 'center center',
@@ -151,6 +191,46 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
             translate: '-50% -50%'
           }}
         />
+        {onZoomIn && onZoomOut && (
+          <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+            <button
+              onClick={onZoomIn}
+              className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-600"
+              title="Zoom In"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button
+              onClick={onZoomOut}
+              className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-600"
+              title="Zoom Out"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </button>
+            {onFitToScreen && (
+              <button
+                onClick={() => onFitToScreen()}
+                className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-xs text-gray-600 font-medium"
+                title="Fit to Screen"
+              >
+                Fit
+              </button>
+            )}
+            {onActualSize && zoomLevel !== undefined && (
+              <button
+                onClick={onActualSize}
+                className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-500"
+                title="Actual Size (100%)"
+              >
+                <span className="text-[10px] font-medium leading-none">{Math.round(zoomLevel * 100)}%</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

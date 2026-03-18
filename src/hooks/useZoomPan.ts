@@ -18,6 +18,9 @@ export interface UseZoomPanReturn {
   handleMouseMove: (e: React.MouseEvent) => void;
   handleMouseUp: () => void;
   handleWheel: (e: React.WheelEvent) => void;
+  handleTouchStart: (e: TouchEvent) => void;
+  handleTouchMove: (e: TouchEvent, containerRect: DOMRect) => void;
+  handleTouchEnd: (e: TouchEvent) => void;
   getTransform: () => string;
 }
 
@@ -39,6 +42,8 @@ export const useZoomPan = (
 
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const lastTouchPos = useRef({ x: 0, y: 0 });
+  const lastPinchDistance = useRef<number | null>(null);
 
   const zoomIn = useCallback(() => {
     setZoomPanState(prev => ({
@@ -166,6 +171,82 @@ export const useZoomPan = (
     });
   }, [zoomPanState]);
 
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    if (e.touches.length === 1 && t0) {
+      lastTouchPos.current = { x: t0.clientX, y: t0.clientY };
+      lastPinchDistance.current = null;
+    } else if (e.touches.length === 2 && t0 && t1) {
+      lastPinchDistance.current = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      lastTouchPos.current = {
+        x: (t0.clientX + t1.clientX) / 2,
+        y: (t0.clientY + t1.clientY) / 2,
+      };
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent, containerRect: DOMRect) => {
+    e.preventDefault();
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+
+    if (e.touches.length === 1 && t0 && lastPinchDistance.current === null) {
+      // 1本指パン
+      const deltaX = t0.clientX - lastTouchPos.current.x;
+      const deltaY = t0.clientY - lastTouchPos.current.y;
+      setZoomPanState(prev => ({
+        ...prev,
+        panX: prev.panX + deltaX,
+        panY: prev.panY + deltaY,
+      }));
+      lastTouchPos.current = { x: t0.clientX, y: t0.clientY };
+    } else if (e.touches.length === 2 && t0 && t1) {
+      // 2本指ピンチズーム
+      const distance = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      const midX = (t0.clientX + t1.clientX) / 2;
+      const midY = (t0.clientY + t1.clientY) / 2;
+
+      if (lastPinchDistance.current !== null) {
+        const rawRatio = distance / lastPinchDistance.current;
+        const PINCH_SENSITIVITY = 2.2;
+        const ratio = 1 + (rawRatio - 1) * PINCH_SENSITIVITY;
+        setZoomPanState(prev => {
+          const newZoom = Math.max(ZOOM_MIN, Math.min(prev.zoom * ratio, ZOOM_MAX));
+          const scaleDiff = newZoom / prev.zoom;
+
+          const localMidX = midX - containerRect.left;
+          const localMidY = midY - containerRect.top;
+          const containerCenterX = containerRect.width / 2;
+          const containerCenterY = containerRect.height / 2;
+          const relX = localMidX - (containerCenterX + prev.panX);
+          const relY = localMidY - (containerCenterY + prev.panY);
+          const panDeltaX = midX - lastTouchPos.current.x;
+          const panDeltaY = midY - lastTouchPos.current.y;
+
+          return {
+            zoom: newZoom,
+            panX: prev.panX + relX * (1 - scaleDiff) + panDeltaX,
+            panY: prev.panY + relY * (1 - scaleDiff) + panDeltaY,
+          };
+        });
+      }
+
+      lastPinchDistance.current = distance;
+      lastTouchPos.current = { x: midX, y: midY };
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    const t0 = e.touches[0];
+    if (e.touches.length < 2) {
+      lastPinchDistance.current = null;
+    }
+    if (e.touches.length === 1 && t0) {
+      lastTouchPos.current = { x: t0.clientX, y: t0.clientY };
+    }
+  }, []);
+
   const getTransform = useCallback(() => {
     const { zoom, panX, panY } = zoomPanState;
     return `translate(${panX}px, ${panY}px) scale(${zoom})`;
@@ -183,6 +264,9 @@ export const useZoomPan = (
     handleMouseMove,
     handleMouseUp,
     handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     getTransform,
   };
 };

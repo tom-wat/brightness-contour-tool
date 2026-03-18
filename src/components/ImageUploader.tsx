@@ -41,7 +41,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
   }, [handleFileUpload]);
 
   return (
-    <div className="w-full h-full flex flex-col p-6">
+    <div className="w-full h-full flex flex-col p-3 lg:p-6">
       <input
         ref={fileInputRef}
         type="file"

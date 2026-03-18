@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { ImageCanvas } from './components/ImageCanvas';
-import { ImageViewControls } from './components/ImageViewControls';
 import { DisplaySettings } from './components/DisplaySettings';
 import { ContourControls } from './components/ContourControls';
 import { ImageFilterControls } from './components/ImageFilterControls';
 import { FrequencyControls } from './components/FrequencyControls';
+import { MobileControlPanel } from './components/MobileControlPanel';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
 import { useImageFilter } from './hooks/useImageFilter';
 import { useZoomPan } from './hooks/useZoomPan';
@@ -56,6 +56,9 @@ function App() {
     handleMouseMove,
     handleMouseUp,
     handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     getTransform,
   } = useZoomPan(
     containerSize?.width,
@@ -182,7 +185,7 @@ function App() {
   ]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-[100dvh] flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-100">
         <div className="px-6 py-3 flex items-center justify-between">
           <h1
@@ -199,10 +202,10 @@ function App() {
           <ImageUploader onImageUpload={handleImageUpload} />
         </main>
       ) : (
-        <main className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar - Controls */}
-            <div className="w-80 bg-white border-r border-gray-100 flex flex-col">
+        <main className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
+            {/* Left Sidebar - Controls (desktop only) */}
+            <div className="hidden lg:flex w-80 bg-white border-r border-gray-100 flex-col">
               <div className="flex-1 overflow-y-auto">
                 <ContourControls
                   contourSettings={contourSettings}
@@ -227,22 +230,10 @@ function App() {
                 />
               </div>
             </div>
-            
+
             {/* Main Content Area */}
-            <div className="flex-1 bg-gray-50 flex flex-col">
-              {/* Image View Controls */}
-              <div className="sticky top-0 z-10">
-                <ImageViewControls
-                  zoomLevel={zoomPanState.zoom}
-                  onZoomIn={zoomIn}
-                  onZoomOut={zoomOut}
-                  onFitToScreen={fitToScreen}
-                  onActualSize={actualSize}
-                />
-              </div>
-              
-              {/* Canvas Area */}
-              <div className="flex-1">
+            <div className="flex-1 min-h-0 bg-gray-50 flex flex-col">
+              <div className="flex-1 min-h-0">
                 <ImageCanvas
                   ref={canvasRef}
                   originalImageData={uploadedImage.originalImageData}
@@ -259,18 +250,71 @@ function App() {
                   onMouseUp={handleMouseUp}
                   onWheel={handleWheel}
                   onContainerResize={handleContainerResize}
+                  zoomLevel={zoomPanState.zoom}
+                  onZoomIn={zoomIn}
+                  onZoomOut={zoomOut}
+                  onFitToScreen={fitToScreen}
+                  onActualSize={actualSize}
+                  onNativeTouchStart={handleTouchStart}
+                  onNativeTouchMove={handleTouchMove}
+                  onNativeTouchEnd={handleTouchEnd}
                 />
               </div>
             </div>
 
-            {/* Right Sidebar - Display Settings */}
-            <DisplaySettings
-              displayOptions={displayOptions}
-              onDisplayOptionsChange={handleDisplayOptionsChange}
-              onExport={handleExport}
-              isExporting={isExporting}
-              hasContour={!!brightnessData}
-            />
+            {/* Right Sidebar - Display Settings (desktop only) */}
+            <div className="hidden lg:contents">
+              <DisplaySettings
+                displayOptions={displayOptions}
+                onDisplayOptionsChange={handleDisplayOptionsChange}
+                onExport={handleExport}
+                isExporting={isExporting}
+                hasContour={!!brightnessData}
+              />
+            </div>
+
+            {/* Mobile Bottom Control Panel */}
+            <div className="lg:hidden">
+              <MobileControlPanel
+                contourContent={
+                  <ContourControls
+                    contourSettings={contourSettings}
+                    onContourSettingsChange={handleContourSettingsChange}
+                  />
+                }
+                filterContent={
+                  <ImageFilterControls
+                    settings={imageFilterSettings}
+                    onSettingsChange={handleImageFilterSettingsChange}
+                    processing={imageFilterResult.processing}
+                    error={imageFilterResult.error}
+                    onApplyImageFilter={handleApplyImageFilter}
+                    openCVLoaded={imageFilterOpenCVLoaded}
+                    openCVLoading={imageFilterOpenCVLoading}
+                    openCVError={imageFilterOpenCVError}
+                  />
+                }
+                frequencyContent={
+                  <FrequencyControls
+                    settings={frequencySettings}
+                    onSettingsChange={handleFrequencySettingsChange}
+                    onApply={handleFrequencyApply}
+                    isProcessing={isFrequencyProcessing}
+                    hasImageData={!!uploadedImage}
+                  />
+                }
+                displayContent={
+                  <DisplaySettings
+                    displayOptions={displayOptions}
+                    onDisplayOptionsChange={handleDisplayOptionsChange}
+                    onExport={handleExport}
+                    isExporting={isExporting}
+                    hasContour={!!brightnessData}
+                    className="w-full bg-white flex flex-col"
+                  />
+                }
+              />
+            </div>
           </div>
         </main>
       )}

@@ -10,6 +10,7 @@ interface DisplaySettingsProps {
   onExport: (settings: ExportSettings) => Promise<void>;
   isExporting?: boolean;
   hasContour?: boolean;
+  className?: string;
 }
 
 export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
@@ -18,6 +19,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
   onExport,
   isExporting,
   hasContour = false,
+  className,
 }) => {
   const handleLayerToggle = (layer: keyof typeof displayOptions.layers) => {
     onDisplayOptionsChange({
@@ -57,7 +59,7 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-100 flex flex-col">
+    <div className={className ?? 'w-80 bg-white border-l border-gray-100 flex flex-col'}>
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 border-b border-gray-100 space-y-4">
           <div>
