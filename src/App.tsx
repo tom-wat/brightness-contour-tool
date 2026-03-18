@@ -38,6 +38,7 @@ function App() {
     return SettingsStorage.getFrequencySettings(DEFAULT_FREQUENCY_SETTINGS);
   });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analyzeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
   const { settings: imageFilterSettings, result: imageFilterResult, openCVLoaded: imageFilterOpenCVLoaded, openCVLoading: imageFilterOpenCVLoading, openCVError: imageFilterOpenCVError, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
@@ -107,11 +108,13 @@ function App() {
 
 
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
-    console.log('🔧 ContourSettings changed:', settings);
     setContourSettings(settings);
     SettingsStorage.saveContourSettings(settings);
     if (uploadedImage) {
-      analyzeBrightness(uploadedImage.originalImageData, settings);
+      if (analyzeDebounceRef.current) clearTimeout(analyzeDebounceRef.current);
+      analyzeDebounceRef.current = setTimeout(() => {
+        analyzeBrightness(uploadedImage.originalImageData, settings);
+      }, 150);
     }
   }, [uploadedImage, analyzeBrightness]);
 
