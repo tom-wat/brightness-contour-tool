@@ -21,8 +21,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Brightness Contour Tool',
-        short_name: 'ContourTool',
+        name: 'Brightness Contour',
+        short_name: 'Brightness Contour',
         description: '画像の輝度等高線・Cannyエッジ検出ツール',
         theme_color: '#111827',
         background_color: '#111827',
