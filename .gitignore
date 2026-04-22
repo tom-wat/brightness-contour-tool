@@ -77,7 +77,9 @@ dist
 
 # Gatsby files
 .cache/
-public
+
+# Generated files in public
+public/opencv.js
 
 # Storybook build outputs
 .out
