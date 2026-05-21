@@ -5,8 +5,8 @@ import { CannyParams } from '../types/CannyTypes';
 import { EdgeProcessingSettings } from '../types/EdgeProcessingTypes';
 
 export interface ExportSettings {
-  format: 'png' | 'jpeg';
-  quality: number; // JPEG quality (1-100)
+  format: 'png' | 'jpeg' | 'webp';
+  quality: number; // JPEG/WebP quality (1-100)
   includeOriginalSize: boolean;
   filename?: string;
 }
@@ -63,8 +63,8 @@ export const useImageExport = () => {
         const { format, quality, filename } = settings;
         
         // Canvas から画像データを取得
-        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-        const qualityValue = format === 'jpeg' ? quality / 100 : undefined;
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+        const qualityValue = (format === 'jpeg' || format === 'webp') ? quality / 100 : undefined;
         
         canvas.toBlob((blob) => {
           if (!blob) {

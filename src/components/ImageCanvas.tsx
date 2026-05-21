@@ -28,6 +28,7 @@ interface ImageCanvasProps {
   onNativeTouchStart?: (e: TouchEvent) => void;
   onNativeTouchMove?: (e: TouchEvent, rect: DOMRect) => void;
   onNativeTouchEnd?: (e: TouchEvent) => void;
+  exportPreviewUrl?: string | null;
 }
 
 export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
@@ -54,6 +55,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   onNativeTouchStart,
   onNativeTouchMove,
   onNativeTouchEnd,
+  exportPreviewUrl,
 }, ref) => {
   const { canvasRef, renderImage, renderWithLayers } = useCanvasRenderer();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -191,6 +193,22 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
             translate: '-50% -50%'
           }}
         />
+        {exportPreviewUrl && (
+          <img
+            src={exportPreviewUrl}
+            alt=""
+            className="absolute touch-none pointer-events-none"
+            style={{
+              maxWidth: 'none',
+              transform: transform || 'none',
+              transformOrigin: 'center center',
+              transition: transform ? 'none' : 'transform 0.2s ease-out',
+              top: '50%',
+              left: '50%',
+              translate: '-50% -50%'
+            }}
+          />
+        )}
         {onZoomIn && onZoomOut && (
           <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
             <button

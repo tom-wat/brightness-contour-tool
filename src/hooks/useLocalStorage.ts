@@ -43,6 +43,7 @@ export class SettingsStorage {
     ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
     IMAGE_FILTER_SETTINGS: 'brightness-contour-image-filter-settings',
     FREQUENCY_SETTINGS: 'brightness-contour-frequency-settings',
+    EXPORT_SETTINGS: 'brightness-contour-export-settings',
   } as const;
 
   static getContourSettings<T>(defaultValue: T): T {
@@ -161,6 +162,23 @@ export class SettingsStorage {
       localStorage.setItem(this.KEYS.FREQUENCY_SETTINGS, JSON.stringify(settings));
     } catch (error) {
       console.warn('Failed to save frequency settings:', error);
+    }
+  }
+
+  static getExportSettings<T>(defaultValue: T): T {
+    try {
+      const stored = localStorage.getItem(this.KEYS.EXPORT_SETTINGS);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static saveExportSettings<T>(settings: T): void {
+    try {
+      localStorage.setItem(this.KEYS.EXPORT_SETTINGS, JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Failed to save export settings:', error);
     }
   }
 

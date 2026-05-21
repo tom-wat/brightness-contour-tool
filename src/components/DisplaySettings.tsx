@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { DisplayOptions } from '../types/UITypes';
 import { ExportControls } from './ExportControls';
 import { ExportSettings } from '../hooks/useImageExport';
@@ -11,6 +11,8 @@ interface DisplaySettingsProps {
   isExporting?: boolean;
   hasContour?: boolean;
   className?: string;
+  canvasRef?: React.RefObject<HTMLCanvasElement>;
+  onExportPreviewUrlChange?: (url: string | null) => void;
 }
 
 export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
@@ -20,7 +22,23 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
   isExporting,
   hasContour = false,
   className,
+  canvasRef,
+  onExportPreviewUrlChange,
 }) => {
+  const [downloadPreviewEnabled, setDownloadPreviewEnabled] = useState(false);
+
+  const handlePreviewUrlChange = useCallback((url: string | null) => {
+    if (downloadPreviewEnabled) {
+      onExportPreviewUrlChange?.(url);
+    }
+  }, [downloadPreviewEnabled, onExportPreviewUrlChange]);
+
+  const handleDownloadPreviewToggle = useCallback(() => {
+    const next = !downloadPreviewEnabled;
+    setDownloadPreviewEnabled(next);
+    if (!next) onExportPreviewUrlChange?.(null);
+  }, [downloadPreviewEnabled, onExportPreviewUrlChange]);
+
   const handleLayerToggle = (layer: keyof typeof displayOptions.layers) => {
     onDisplayOptionsChange({
       ...displayOptions,
@@ -249,8 +267,8 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 </div>
           </div>
 
-          {/* Grayscale Mode */}
-          <div className="pt-2 border-t border-gray-100">
+          {/* Grayscale Mode / Download Preview */}
+          <div className="pt-2 border-t border-gray-100 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700">Grayscale Mode</label>
               <button
@@ -267,12 +285,30 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 />
               </button>
             </div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">Download Preview</label>
+              <button
+                onClick={handleDownloadPreviewToggle}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  downloadPreviewEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-label="Toggle download preview"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    downloadPreviewEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
 
         <ExportControls
           onExport={onExport}
           isExporting={isExporting}
+          canvasRef={canvasRef}
+          onPreviewUrlChange={handlePreviewUrlChange}
         />
       </div>
     </div>

@@ -34,6 +34,7 @@ function App() {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportPreviewUrl, setExportPreviewUrl] = useState<string | null>(null);
   const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(() => {
     return SettingsStorage.getFrequencySettings(DEFAULT_FREQUENCY_SETTINGS);
   });
@@ -261,6 +262,7 @@ function App() {
                   onNativeTouchStart={handleTouchStart}
                   onNativeTouchMove={handleTouchMove}
                   onNativeTouchEnd={handleTouchEnd}
+                  exportPreviewUrl={exportPreviewUrl}
                 />
               </div>
             </div>
@@ -273,6 +275,8 @@ function App() {
                 onExport={handleExport}
                 isExporting={isExporting}
                 hasContour={!!brightnessData}
+                canvasRef={canvasRef}
+                onExportPreviewUrlChange={setExportPreviewUrl}
               />
             </div>
 
@@ -314,6 +318,8 @@ function App() {
                     isExporting={isExporting}
                     hasContour={!!brightnessData}
                     className="w-full bg-white flex flex-col"
+                    canvasRef={canvasRef}
+                    onExportPreviewUrlChange={setExportPreviewUrl}
                   />
                 }
               />
