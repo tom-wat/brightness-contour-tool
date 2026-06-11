@@ -17,290 +17,274 @@ interface UseCanvasRendererReturn {
   clearCanvas: () => void;
 }
 
+// Linear Light合成用に事前分解した明部・暗部成分
+interface LinearLightParts {
+  bright: HTMLCanvasElement;
+  dark: HTMLCanvasElement;
+}
+
+interface ContourCacheEntry {
+  source: object; // BrightnessData または ImageData（参照比較のみ）
+  settingsKey: string;
+  canvas: HTMLCanvasElement;
+}
+
+// レンダリング中間結果のキャッシュ。
+// 重い処理（等高線検出・グレースケール変換・Linear Light分解）は入力が
+// 変わったときだけ再計算し、レイヤー切替や透明度変更では drawImage 合成のみ行う。
+interface RenderCache {
+  source: WeakMap<ImageData, HTMLCanvasElement>;
+  grayscale: WeakMap<ImageData, HTMLCanvasElement>;
+  contour: ContourCacheEntry | null;
+  filteredContour: ContourCacheEntry | null;
+  linearLightParts: WeakMap<ImageData, LinearLightParts>;
+  grayscaleLinearLightParts: WeakMap<ImageData, LinearLightParts>;
+}
+
+const createRenderCache = (): RenderCache => ({
+  source: new WeakMap(),
+  grayscale: new WeakMap(),
+  contour: null,
+  filteredContour: null,
+  linearLightParts: new WeakMap(),
+  grayscaleLinearLightParts: new WeakMap(),
+});
+
+// ImageData を drawImage 可能なキャンバスに変換
+const imageDataToCanvas = (imageData: ImageData): HTMLCanvasElement => {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.putImageData(imageData, 0, 0);
+  }
+  return canvas;
+};
+
+const convertToGrayscale = (imageData: ImageData): ImageData => {
+  const { width, height, data } = imageData;
+  const grayscaleData = new ImageData(width, height);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i]!;
+    const g = data[i + 1]!;
+    const b = data[i + 2]!;
+    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    grayscaleData.data[i] = brightness;
+    grayscaleData.data[i + 1] = brightness;
+    grayscaleData.data[i + 2] = brightness;
+    grayscaleData.data[i + 3] = data[i + 3]!;
+  }
+
+  return grayscaleData;
+};
+
+// filtered画像から輝度データを生成するヘルパー関数
+const createBrightnessDataFromFiltered = (filteredImageData: ImageData): BrightnessData => {
+  const { width, height, data } = filteredImageData;
+  const brightnessMap: number[][] = [];
+
+  for (let y = 0; y < height; y++) {
+    brightnessMap[y] = [];
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = (y * width + x) * 4;
+      const r = data[pixelIndex] ?? 0;
+      const g = data[pixelIndex + 1] ?? 0;
+      const b = data[pixelIndex + 2] ?? 0;
+      const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      brightnessMap[y]![x] = brightness;
+    }
+  }
+
+  return {
+    imageData: filteredImageData,
+    brightnessMap,
+    levels: [], // 空の配列を設定（使用されない）
+    width,
+    height
+  };
+};
+
+const detectContours = (
+  brightnessData: BrightnessData,
+  settings: ContourSettings
+): ImageData => {
+  const { width, height, brightnessMap } = brightnessData;
+  const contourData = new ImageData(width, height);
+  const levelStep = 255 / settings.levels;
+
+  // Base adjustment with brightness threshold and contrast enhancement
+  const brightnessThreshold = settings.brightnessThreshold ?? 65; // Fixed threshold for optimal visibility
+  const contrastSetting = settings.contourContrast ?? 0; // Default 0%
+  const contrastStrength = contrastSetting / 100; // 0.0 to 1.0
+
+  // Apply contour detection with simple adjacent brightness average
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const currentBrightness = brightnessMap[y]![x]!;
+      const currentLevel = Math.floor(currentBrightness / levelStep);
+
+      const neighbors = [
+        brightnessMap[y - 1]![x]!,
+        brightnessMap[y + 1]![x]!,
+        brightnessMap[y]![x - 1]!,
+        brightnessMap[y]![x + 1]!,
+      ];
+
+      let isContour = false;
+      let adjacentBrightness = currentBrightness;
+
+      for (const neighbor of neighbors) {
+        const neighborLevel = Math.floor(neighbor / levelStep);
+        if (Math.abs(currentLevel - neighborLevel) >= 1) {
+          isContour = true;
+          // Use average of current and different neighbor brightness
+          adjacentBrightness = (currentBrightness + neighbor) / 2;
+          break;
+        }
+      }
+
+      const index = (y * width + x) * 4;
+      if (isContour) {
+        // Adaptive base adjustment based on brightness threshold
+        const baseAdjustment = adjacentBrightness >= brightnessThreshold ? -25 : +75;
+        const baseContourGray = adjacentBrightness + baseAdjustment;
+
+        // Apply contrast enhancement based on adjustment type
+        let contourGray;
+        if (contrastStrength > 0) {
+          if (baseAdjustment < 0) { // -25 case: make darker
+            contourGray = baseContourGray * (1 - contrastStrength);
+          } else { // +75 case: make brighter
+            contourGray = baseContourGray + (255 - baseContourGray) * contrastStrength;
+          }
+        } else {
+          contourGray = baseContourGray;
+        }
+
+        contourGray = Math.max(0, Math.min(255, contourGray));
+
+        contourData.data[index] = contourGray;
+        contourData.data[index + 1] = contourGray;
+        contourData.data[index + 2] = contourGray;
+        contourData.data[index + 3] = Math.floor(255 * (settings.transparency / 100));
+      } else {
+        contourData.data[index] = 0;
+        contourData.data[index + 1] = 0;
+        contourData.data[index + 2] = 0;
+        contourData.data[index + 3] = 0;
+      }
+    }
+  }
+
+  return contourData;
+};
+
+// Optimized lightweight contour thinning
+const thinContourLines = (contourData: ImageData, minDistance: number): ImageData => {
+  const { width, height } = contourData;
+  const thinned = new ImageData(width, height);
+
+  if (minDistance <= 0) return contourData;
+
+  // Use larger grid for better performance at cost of some precision
+  const gridSize = Math.max(2, Math.ceil(minDistance * 1.2));
+  const occupied = new Set<string>();
+
+  // Single pass with optimized grid-based thinning
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+
+      if (contourData.data[index + 3]! > 0) { // Has contour
+        const gridX = Math.floor(x / gridSize);
+        const gridY = Math.floor(y / gridSize);
+        const gridKey = `${gridX},${gridY}`;
+
+        // Simple grid check (no 9-neighborhood for better performance)
+        if (!occupied.has(gridKey)) {
+          occupied.add(gridKey);
+
+          thinned.data[index] = contourData.data[index]!;
+          thinned.data[index + 1] = contourData.data[index + 1]!;
+          thinned.data[index + 2] = contourData.data[index + 2]!;
+          thinned.data[index + 3] = contourData.data[index + 3]!;
+        }
+      }
+    }
+  }
+
+  return thinned;
+};
+
+// Contour detection with optional thinning
+const detectContoursWithThinning = (
+  brightnessData: BrightnessData,
+  settings: ContourSettings
+): ImageData => {
+  const contourData = detectContours(brightnessData, settings);
+
+  if (settings.minContourDistance && settings.minContourDistance > 0) {
+    return thinContourLines(contourData, settings.minContourDistance);
+  }
+
+  return contourData;
+};
+
+// Linear Light合成 base + 2*(overlay - 128) を Canvas合成で実現するため、
+// overlay を加算成分 bright = max(0, 2*(overlay - 128)) と
+// 減算成分 dark = max(0, 2*(128 - overlay)) に分解する（チャンネルごとに排他）。
+// 合成時は base + bright - dark となり、元のピクセルループと同じ結果になる。
+const createLinearLightParts = (overlay: ImageData): LinearLightParts => {
+  const { width, height, data } = overlay;
+  const bright = new ImageData(width, height);
+  const dark = new ImageData(width, height);
+
+  for (let i = 0; i < data.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      const value = data[i + c]!;
+      bright.data[i + c] = Math.max(0, 2 * value - 256);
+      dark.data[i + c] = Math.max(0, 256 - 2 * value);
+    }
+    bright.data[i + 3] = 255;
+    dark.data[i + 3] = 255;
+  }
+
+  return {
+    bright: imageDataToCanvas(bright),
+    dark: imageDataToCanvas(dark),
+  };
+};
+
+// base + bright - dark を合成モードで計算する。
+// 加算は 'lighter'、減算は「白との difference で反転 → 加算 → 再反転」で実現。
+const applyLinearLight = (
+  ctx: CanvasRenderingContext2D,
+  parts: LinearLightParts,
+  width: number,
+  height: number
+): void => {
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(parts.bright, 0, 0);
+
+  ctx.globalCompositeOperation = 'difference';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(parts.dark, 0, 0);
+
+  ctx.globalCompositeOperation = 'difference';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalCompositeOperation = 'source-over';
+};
+
 export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // filtered画像から輝度データを生成するヘルパー関数
-  const createBrightnessDataFromFiltered = (filteredImageData: ImageData): BrightnessData => {
-    const { width, height, data } = filteredImageData;
-    const brightnessMap: number[][] = [];
-    
-    // denoised画像から輝度値を再計算して2次元配列に格納
-    for (let y = 0; y < height; y++) {
-      brightnessMap[y] = [];
-      for (let x = 0; x < width; x++) {
-        const pixelIndex = (y * width + x) * 4;
-        const r = data[pixelIndex] ?? 0;
-        const g = data[pixelIndex + 1] ?? 0;
-        const b = data[pixelIndex + 2] ?? 0;
-        // 輝度計算（ITU-R BT.709標準）
-        const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-        brightnessMap[y]![x] = brightness;
-      }
-    }
-
-    return {
-      imageData: filteredImageData,
-      brightnessMap,
-      levels: [], // 空の配列を設定（使用されない）
-      width,
-      height
-    };
-  };
-
-  const convertToGrayscale = (imageData: ImageData): ImageData => {
-    const { width, height, data } = imageData;
-    const grayscaleData = new ImageData(width, height);
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]!;
-      const g = data[i + 1]!;
-      const b = data[i + 2]!;
-      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-
-      grayscaleData.data[i] = brightness;
-      grayscaleData.data[i + 1] = brightness;
-      grayscaleData.data[i + 2] = brightness;
-      grayscaleData.data[i + 3] = data[i + 3]!;
-    }
-
-    return grayscaleData;
-  };
-
-
-  const detectContours = (
-    brightnessData: BrightnessData,
-    settings: ContourSettings
-  ): ImageData => {
-    const { width, height, brightnessMap } = brightnessData;
-    const contourData = new ImageData(width, height);
-    const levelStep = 255 / settings.levels;
-
-    // Base adjustment with brightness threshold and contrast enhancement
-    const brightnessThreshold = settings.brightnessThreshold ?? 65; // Fixed threshold for optimal visibility
-    const contrastSetting = settings.contourContrast ?? 0; // Default 0%
-    const contrastStrength = contrastSetting / 100; // 0.0 to 1.0
-
-    // Apply contour detection with simple adjacent brightness average
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const currentBrightness = brightnessMap[y]![x]!;
-        const currentLevel = Math.floor(currentBrightness / levelStep);
-
-        const neighbors = [
-          brightnessMap[y - 1]![x]!,
-          brightnessMap[y + 1]![x]!,
-          brightnessMap[y]![x - 1]!,
-          brightnessMap[y]![x + 1]!,
-        ];
-
-        let isContour = false;
-        let adjacentBrightness = currentBrightness;
-
-        for (const neighbor of neighbors) {
-          const neighborLevel = Math.floor(neighbor / levelStep);
-          if (Math.abs(currentLevel - neighborLevel) >= 1) {
-            isContour = true;
-            // Use average of current and different neighbor brightness
-            adjacentBrightness = (currentBrightness + neighbor) / 2;
-            break;
-          }
-        }
-
-        const index = (y * width + x) * 4;
-        if (isContour) {
-          // Adaptive base adjustment based on brightness threshold
-          const baseAdjustment = adjacentBrightness >= brightnessThreshold ? -25 : +75;
-          const baseContourGray = adjacentBrightness + baseAdjustment;
-
-          // Apply contrast enhancement based on adjustment type
-          let contourGray;
-          if (contrastStrength > 0) {
-            if (baseAdjustment < 0) { // -25 case: make darker
-              contourGray = baseContourGray * (1 - contrastStrength);
-            } else { // +75 case: make brighter
-              contourGray = baseContourGray + (255 - baseContourGray) * contrastStrength;
-            }
-          } else {
-            contourGray = baseContourGray;
-          }
-
-          contourGray = Math.max(0, Math.min(255, contourGray));
-
-          contourData.data[index] = contourGray;
-          contourData.data[index + 1] = contourGray;
-          contourData.data[index + 2] = contourGray;
-          contourData.data[index + 3] = Math.floor(255 * (settings.transparency / 100));
-        } else {
-          contourData.data[index] = 0;
-          contourData.data[index + 1] = 0;
-          contourData.data[index + 2] = 0;
-          contourData.data[index + 3] = 0;
-        }
-      }
-    }
-
-    return contourData;
-  };
-
-  // Optimized lightweight contour thinning
-  const thinContourLines = (contourData: ImageData, minDistance: number): ImageData => {
-    const { width, height } = contourData;
-    const thinned = new ImageData(width, height);
-
-    if (minDistance <= 0) return contourData;
-
-    const startTime = performance.now();
-
-    // Use larger grid for better performance at cost of some precision
-    const gridSize = Math.max(2, Math.ceil(minDistance * 1.2));
-    const occupied = new Set<string>();
-
-    let originalCount = 0;
-    let keptCount = 0;
-
-    // Single pass with optimized grid-based thinning
-    for (let y = 0; y < height; y += 1) { // Process every pixel
-      for (let x = 0; x < width; x += 1) {
-        const index = (y * width + x) * 4;
-
-        if (contourData.data[index + 3]! > 0) { // Has contour
-          originalCount++;
-
-          // Calculate grid position
-          const gridX = Math.floor(x / gridSize);
-          const gridY = Math.floor(y / gridSize);
-          const gridKey = `${gridX},${gridY}`;
-
-          // Simple grid check (no 9-neighborhood for better performance)
-          if (!occupied.has(gridKey)) {
-            occupied.add(gridKey);
-            keptCount++;
-
-            // Copy the contour pixel to thinned image
-            thinned.data[index] = contourData.data[index]!;
-            thinned.data[index + 1] = contourData.data[index + 1]!;
-            thinned.data[index + 2] = contourData.data[index + 2]!;
-            thinned.data[index + 3] = contourData.data[index + 3]!;
-          }
-        }
-      }
-    }
-
-    const endTime = performance.now();
-
-    // Debug: Log thinning performance
-    if (originalCount > 10000) { // Only log for large images
-      console.log(`Fast thinning: ${originalCount} → ${keptCount} pixels (${minDistance}px) in ${(endTime - startTime).toFixed(1)}ms`);
-    }
-
-    return thinned;
-  };
-
-  // Contour detection with optional thinning
-  const detectContoursWithThinning = useCallback((
-    brightnessData: BrightnessData,
-    settings: ContourSettings
-  ): ImageData => {
-    const contourData = detectContours(brightnessData, settings);
-
-    if (settings.minContourDistance && settings.minContourDistance > 0) {
-      return thinContourLines(contourData, settings.minContourDistance);
-    }
-
-    return contourData;
-  }, []);
-
-
-  // アルファブレンディングによる画像合成（透明背景にも対応）
-  const combineImageData = (
-    base: ImageData,
-    overlay: ImageData
-  ): ImageData => {
-    const combined = new ImageData(base.width, base.height);
-
-    for (let i = 0; i < base.data.length; i += 4) {
-      const baseR = base.data[i]!;
-      const baseG = base.data[i + 1]!;
-      const baseB = base.data[i + 2]!;
-      const baseA = base.data[i + 3]!;
-
-      const overlayR = overlay.data[i]!;
-      const overlayG = overlay.data[i + 1]!;
-      const overlayB = overlay.data[i + 2]!;
-      const overlayA = overlay.data[i + 3]!;
-
-      const alpha = overlayA / 255;
-
-      combined.data[i] = baseR * (1 - alpha) + overlayR * alpha;
-      combined.data[i + 1] = baseG * (1 - alpha) + overlayG * alpha;
-      combined.data[i + 2] = baseB * (1 - alpha) + overlayB * alpha;
-      combined.data[i + 3] = Math.max(baseA, overlayA);
-    }
-
-    return combined;
-  };
-
-
-  const combineWithFiltering = (
-    base: ImageData,
-    filtered: ImageData,
-    opacity: number = 100
-  ): ImageData => {
-    const combined = new ImageData(base.width, base.height);
-    const alpha = opacity / 100;
-    
-    for (let i = 0; i < base.data.length; i += 4) {
-      const baseR = base.data[i]!;
-      const baseG = base.data[i + 1]!;
-      const baseB = base.data[i + 2]!;
-      const baseA = base.data[i + 3]!;
-
-      const filteredR = filtered.data[i]!;
-      const filteredG = filtered.data[i + 1]!;
-      const filteredB = filtered.data[i + 2]!;
-      const filteredA = filtered.data[i + 3]!;
-
-      combined.data[i] = baseR * (1 - alpha) + filteredR * alpha;
-      combined.data[i + 1] = baseG * (1 - alpha) + filteredG * alpha;
-      combined.data[i + 2] = baseB * (1 - alpha) + filteredB * alpha;
-      combined.data[i + 3] = Math.max(baseA, filteredA);
-    }
-
-    return combined;
-  };
-
-  // Linear Light合成モード（Photoshop互換）
-  const combineWithLinearLight = (
-    baseImageData: ImageData,
-    overlayImageData: ImageData
-  ): ImageData => {
-    const combined = new ImageData(
-      new Uint8ClampedArray(baseImageData.data),
-      baseImageData.width,
-      baseImageData.height
-    );
-
-    for (let i = 0; i < combined.data.length; i += 4) {
-      const baseR = combined.data[i] || 0;
-      const baseG = combined.data[i + 1] || 0;
-      const baseB = combined.data[i + 2] || 0;
-
-      const overlayR = overlayImageData.data[i] || 0;
-      const overlayG = overlayImageData.data[i + 1] || 0;
-      const overlayB = overlayImageData.data[i + 2] || 0;
-
-      // Linear Light合成式: Base + 2 * (Overlay - 128)
-      // Photoshopの Linear Light ブレンドモードと同等
-      combined.data[i] = Math.min(255, Math.max(0, baseR + 2 * (overlayR - 128)));
-      combined.data[i + 1] = Math.min(255, Math.max(0, baseG + 2 * (overlayG - 128)));
-      combined.data[i + 2] = Math.min(255, Math.max(0, baseB + 2 * (overlayB - 128)));
-      // アルファチャンネルは元のまま
-      combined.data[i + 3] = baseImageData.data[i + 3] || 255;
-    }
-
-    return combined;
-  };
+  const cacheRef = useRef<RenderCache>(createRenderCache());
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -327,135 +311,119 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Canvas サイズを設定
     const imageWidth = originalImageData.width;
     const imageHeight = originalImageData.height;
-    
+
+    // サイズ設定で canvas は透明にクリアされる
     canvas.width = imageWidth;
     canvas.height = imageHeight;
 
-    // 背景を決定（Original/Filteredがない場合は透明背景）
-    const hasBaseImage = displayOptions.layers.original || (displayOptions.layers.filtered && filteredImageData);
-    
-    let baseImageData: ImageData;
-    
-    if (hasBaseImage) {
-      // ベース画像がある場合は黒背景で初期化
-      const blackBackground = new ImageData(imageWidth, imageHeight);
-      for (let i = 0; i < blackBackground.data.length; i += 4) {
-        blackBackground.data[i] = 0;     // R
-        blackBackground.data[i + 1] = 0; // G
-        blackBackground.data[i + 2] = 0; // B
-        blackBackground.data[i + 3] = 255; // A
+    const cache = cacheRef.current;
+    const { layers, grayscaleMode } = displayOptions;
+
+    // ソース画像のキャンバス（グレースケール変換込み）をキャッシュから取得
+    const getLayerCanvas = (imageData: ImageData): HTMLCanvasElement => {
+      const map = grayscaleMode ? cache.grayscale : cache.source;
+      let layerCanvas = map.get(imageData);
+      if (!layerCanvas) {
+        layerCanvas = imageDataToCanvas(
+          grayscaleMode ? convertToGrayscale(imageData) : imageData
+        );
+        map.set(imageData, layerCanvas);
       }
-      baseImageData = blackBackground;
-    } else {
-      // ベース画像がない場合は透明背景で初期化
-      const transparentBackground = new ImageData(imageWidth, imageHeight);
-      for (let i = 0; i < transparentBackground.data.length; i += 4) {
-        transparentBackground.data[i] = 0;     // R
-        transparentBackground.data[i + 1] = 0; // G
-        transparentBackground.data[i + 2] = 0; // B
-        transparentBackground.data[i + 3] = 0; // A (透明)
+      return layerCanvas;
+    };
+
+    // 等高線キャンバスをキャッシュから取得（輝度データ・設定が変わったときだけ再計算）
+    const getContourCanvas = (
+      entryName: 'contour' | 'filteredContour',
+      source: object,
+      build: () => ImageData
+    ): HTMLCanvasElement => {
+      const settingsKey = JSON.stringify(contourSettings);
+      let entry = cache[entryName];
+      if (!entry || entry.source !== source || entry.settingsKey !== settingsKey) {
+        entry = { source, settingsKey, canvas: imageDataToCanvas(build()) };
+        cache[entryName] = entry;
       }
-      baseImageData = transparentBackground;
-    }
+      return entry.canvas;
+    };
+
+    const getLinearLightParts = (overlay: ImageData): LinearLightParts => {
+      const map = grayscaleMode ? cache.grayscaleLinearLightParts : cache.linearLightParts;
+      let parts = map.get(overlay);
+      if (!parts) {
+        parts = createLinearLightParts(
+          grayscaleMode ? convertToGrayscale(overlay) : overlay
+        );
+        map.set(overlay, parts);
+      }
+      return parts;
+    };
 
     // 1. Original Layer
-    if (displayOptions.layers.original) {
-      const originalToUse = displayOptions.grayscaleMode ? convertToGrayscale(originalImageData) : originalImageData;
-      baseImageData = originalToUse;
+    if (layers.original) {
+      ctx.drawImage(getLayerCanvas(originalImageData), 0, 0);
     }
 
     // 2. Filtered Layer
-    if (displayOptions.layers.filtered) {
+    if (layers.filtered) {
       if (filteredImageData) {
-        const filteredToUse = displayOptions.grayscaleMode ? convertToGrayscale(filteredImageData) : filteredImageData;
-        baseImageData = displayOptions.layers.original ? 
-          combineWithFiltering(baseImageData, filteredToUse, imageFilterOpacity) : 
-          filteredToUse;
-      } else {
+        // Originalと重ねる場合は opacity でブレンド、単独表示なら不透明
+        ctx.globalAlpha = layers.original ? imageFilterOpacity / 100 : 1;
+        ctx.drawImage(getLayerCanvas(filteredImageData), 0, 0);
+        ctx.globalAlpha = 1;
+      } else if (!layers.original) {
         // フィルター画像がない場合は元画像を表示
-        const originalToUse = displayOptions.grayscaleMode ? convertToGrayscale(originalImageData) : originalImageData;
-        if (!displayOptions.layers.original) {
-          baseImageData = originalToUse;
-        }
+        ctx.drawImage(getLayerCanvas(originalImageData), 0, 0);
       }
     }
 
     // 3. Contour Layer (Original image contour)
-    if (displayOptions.layers.contour && brightnessData) {
-      // 常にオリジナル画像の輝度データを使用
-      const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-      baseImageData = combineImageData(baseImageData, contourData);
+    if (layers.contour && brightnessData) {
+      const contourCanvas = getContourCanvas('contour', brightnessData, () =>
+        detectContoursWithThinning(brightnessData, contourSettings)
+      );
+      ctx.drawImage(contourCanvas, 0, 0);
     }
 
     // 4. Filtered Contour Layer (Filtered image contour)
-    if (displayOptions.layers.filteredContour && brightnessData) {
-      if (filteredImageData) {
-        // フィルタリングされた画像の輝度データを使用
-        const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-        const filteredContourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-        baseImageData = combineImageData(baseImageData, filteredContourData);
-      }
+    if (layers.filteredContour && brightnessData && filteredImageData) {
+      const filteredContourCanvas = getContourCanvas('filteredContour', filteredImageData, () =>
+        detectContoursWithThinning(
+          createBrightnessDataFromFiltered(filteredImageData),
+          contourSettings
+        )
+      );
+      ctx.drawImage(filteredContourCanvas, 0, 0);
     }
 
-
-    // 6. Frequency Layers
+    // 5. Frequency Layers
     if (frequencyData) {
       // Low Frequency Layer (ベースとして使用)
-      if (displayOptions.layers.lowFrequency && frequencyData.lowFrequency) {
-        const lowFreqToUse = displayOptions.grayscaleMode ?
-          convertToGrayscale(frequencyData.lowFrequency) :
-          frequencyData.lowFrequency;
-        baseImageData = combineImageData(baseImageData, lowFreqToUse);
+      if (layers.lowFrequency && frequencyData.lowFrequency) {
+        ctx.drawImage(getLayerCanvas(frequencyData.lowFrequency), 0, 0);
       }
 
-      // High Frequency Bright Layer
-      if (displayOptions.layers.highFrequencyBright && frequencyData.highFrequencyBright) {
-        const highFreqBrightToUse = displayOptions.grayscaleMode ?
-          convertToGrayscale(frequencyData.highFrequencyBright) :
-          frequencyData.highFrequencyBright;
-        if (displayOptions.layers.lowFrequency) {
-          // Low Frequencyがオンの場合: Linear Light合成
-          baseImageData = combineWithLinearLight(baseImageData, highFreqBrightToUse);
-        } else {
-          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = combineImageData(baseImageData, highFreqBrightToUse);
-        }
-      }
+      // High Frequency Layers
+      // Low Frequencyがオンの場合は Linear Light合成、オフの場合は通常合成でディテールのみ表示
+      const highFrequencyLayers: [boolean, ImageData | null][] = [
+        [layers.highFrequencyBright, frequencyData.highFrequencyBright],
+        [layers.highFrequencyDark, frequencyData.highFrequencyDark],
+        [layers.highFrequencyCombined, frequencyData.highFrequencyCombined],
+      ];
 
-      // High Frequency Dark Layer
-      if (displayOptions.layers.highFrequencyDark && frequencyData.highFrequencyDark) {
-        const highFreqDarkToUse = displayOptions.grayscaleMode ?
-          convertToGrayscale(frequencyData.highFrequencyDark) :
-          frequencyData.highFrequencyDark;
-        if (displayOptions.layers.lowFrequency) {
-          // Low Frequencyがオンの場合: Linear Light合成
-          baseImageData = combineWithLinearLight(baseImageData, highFreqDarkToUse);
-        } else {
-          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = combineImageData(baseImageData, highFreqDarkToUse);
-        }
-      }
+      for (const [enabled, overlay] of highFrequencyLayers) {
+        if (!enabled || !overlay) continue;
 
-      // High Frequency Combined Layer
-      if (displayOptions.layers.highFrequencyCombined && frequencyData.highFrequencyCombined) {
-        const highFreqCombinedToUse = displayOptions.grayscaleMode ?
-          convertToGrayscale(frequencyData.highFrequencyCombined) :
-          frequencyData.highFrequencyCombined;
-        if (displayOptions.layers.lowFrequency) {
-          // Low Frequencyがオンの場合: Linear Light合成
-          baseImageData = combineWithLinearLight(baseImageData, highFreqCombinedToUse);
+        if (layers.lowFrequency) {
+          applyLinearLight(ctx, getLinearLightParts(overlay), imageWidth, imageHeight);
         } else {
-          // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = combineImageData(baseImageData, highFreqCombinedToUse);
+          ctx.drawImage(getLayerCanvas(overlay), 0, 0);
         }
       }
     }
-
-    ctx.putImageData(baseImageData, 0, 0);
-  }, [detectContoursWithThinning]);
+  }, []);
 
   return {
     canvasRef,
