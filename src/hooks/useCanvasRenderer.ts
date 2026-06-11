@@ -197,134 +197,28 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return thinned;
   };
 
-  // Enhanced contour detection with optional thinning
+  // Contour detection with optional thinning
   const detectContoursWithThinning = useCallback((
     brightnessData: BrightnessData,
     settings: ContourSettings
   ): ImageData => {
     const contourData = detectContours(brightnessData, settings);
 
-    // Apply thinning when enabled (any level)
-    const shouldThin = settings.minContourDistance && settings.minContourDistance > 0;
-
-    console.log(`🔍 Regular thinning check: levels=${settings.levels}, minDistance=${settings.minContourDistance}, shouldThin=${shouldThin}`);
-
-    if (shouldThin) {
-      console.log(`✂️ Applying regular thinning with distance=${settings.minContourDistance}`);
-      return thinContourLines(contourData, settings.minContourDistance!);
-    } else {
-      console.log(`⏭️ Skipping regular thinning - minDistance is 0`);
+    if (settings.minContourDistance && settings.minContourDistance > 0) {
+      return thinContourLines(contourData, settings.minContourDistance);
     }
 
     return contourData;
   }, []);
 
-  // Enhanced transparent contour detection with optional thinning
-  const detectContoursTransparentWithThinning = useCallback((
-    brightnessData: BrightnessData,
-    settings: ContourSettings
-  ): ImageData => {
-    const contourData = detectContoursTransparent(brightnessData, settings);
 
-    // Apply thinning when enabled (any level)
-    const shouldThin = settings.minContourDistance && settings.minContourDistance > 0;
-
-    console.log(`🔍 Transparent thinning check: levels=${settings.levels}, minDistance=${settings.minContourDistance}, shouldThin=${shouldThin}`);
-
-    if (shouldThin) {
-      console.log(`✂️ Applying transparent thinning with distance=${settings.minContourDistance}`);
-      return thinContourLines(contourData, settings.minContourDistance!);
-    } else {
-      console.log(`⏭️ Skipping transparent thinning - minDistance is 0`);
-    }
-
-    return contourData;
-  }, []);
-
-  // 透明背景対応の等高線検出関数
-  const detectContoursTransparent = (
-    brightnessData: BrightnessData,
-    settings: ContourSettings
-  ): ImageData => {
-    const { width, height, brightnessMap } = brightnessData;
-    const contourData = new ImageData(width, height);
-    const levelStep = 255 / settings.levels;
-
-    // Base adjustment with brightness threshold and contrast enhancement
-    const brightnessThreshold = settings.brightnessThreshold ?? 65; // Fixed threshold for optimal visibility
-    const contrastSetting = settings.contourContrast ?? 0; // Default 0%
-    const contrastStrength = contrastSetting / 100; // 0.0 to 1.0
-
-    // Apply contour detection with simple adjacent brightness average
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const currentBrightness = brightnessMap[y]![x]!;
-        const currentLevel = Math.floor(currentBrightness / levelStep);
-
-        const neighbors = [
-          brightnessMap[y - 1]![x]!,
-          brightnessMap[y + 1]![x]!,
-          brightnessMap[y]![x - 1]!,
-          brightnessMap[y]![x + 1]!,
-        ];
-
-        let isContour = false;
-        let adjacentBrightness = currentBrightness;
-
-        for (const neighbor of neighbors) {
-          const neighborLevel = Math.floor(neighbor / levelStep);
-          if (Math.abs(currentLevel - neighborLevel) >= 1) {
-            isContour = true;
-            // Use average of current and different neighbor brightness
-            adjacentBrightness = (currentBrightness + neighbor) / 2;
-            break;
-          }
-        }
-
-        const index = (y * width + x) * 4;
-        if (isContour) {
-          // Adaptive base adjustment based on brightness threshold
-          const baseAdjustment = adjacentBrightness >= brightnessThreshold ? -25 : +75;
-          const baseContourGray = adjacentBrightness + baseAdjustment;
-
-          // Apply contrast enhancement based on adjustment type
-          let contourGray;
-          if (contrastStrength > 0) {
-            if (baseAdjustment < 0) { // -25 case: make darker
-              contourGray = baseContourGray * (1 - contrastStrength);
-            } else { // +75 case: make brighter
-              contourGray = baseContourGray + (255 - baseContourGray) * contrastStrength;
-            }
-          } else {
-            contourGray = baseContourGray;
-          }
-
-          contourGray = Math.max(0, Math.min(255, contourGray));
-
-          contourData.data[index] = contourGray;
-          contourData.data[index + 1] = contourGray;
-          contourData.data[index + 2] = contourGray;
-          contourData.data[index + 3] = Math.floor(255 * (settings.transparency / 100));
-        } else {
-          contourData.data[index] = 0;
-          contourData.data[index + 1] = 0;
-          contourData.data[index + 2] = 0;
-          contourData.data[index + 3] = 0; // 透明
-        }
-      }
-    }
-
-    return contourData;
-  };
-
-
+  // アルファブレンディングによる画像合成（透明背景にも対応）
   const combineImageData = (
     base: ImageData,
-    overlay: ImageData,
-    blendMode: 'normal' | 'multiply' = 'normal'
+    overlay: ImageData
   ): ImageData => {
     const combined = new ImageData(base.width, base.height);
-    
+
     for (let i = 0; i < base.data.length; i += 4) {
       const baseR = base.data[i]!;
       const baseG = base.data[i + 1]!;
@@ -338,61 +232,14 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
       const alpha = overlayA / 255;
 
-      if (blendMode === 'multiply' && overlayA > 0) {
-        combined.data[i] = Math.min(255, baseR * (overlayR / 255));
-        combined.data[i + 1] = Math.min(255, baseG * (overlayG / 255));
-        combined.data[i + 2] = Math.min(255, baseB * (overlayB / 255));
-      } else {
-        combined.data[i] = baseR * (1 - alpha) + overlayR * alpha;
-        combined.data[i + 1] = baseG * (1 - alpha) + overlayG * alpha;
-        combined.data[i + 2] = baseB * (1 - alpha) + overlayB * alpha;
-      }
-      
+      combined.data[i] = baseR * (1 - alpha) + overlayR * alpha;
+      combined.data[i + 1] = baseG * (1 - alpha) + overlayG * alpha;
+      combined.data[i + 2] = baseB * (1 - alpha) + overlayB * alpha;
       combined.data[i + 3] = Math.max(baseA, overlayA);
     }
 
     return combined;
   };
-
-  // 透明背景対応の画像合成関数
-  const combineImageDataTransparent = (
-    base: ImageData,
-    overlay: ImageData
-  ): ImageData => {
-    const combined = new ImageData(base.width, base.height);
-    
-    for (let i = 0; i < base.data.length; i += 4) {
-      const baseR = base.data[i]!;
-      const baseG = base.data[i + 1]!;
-      const baseB = base.data[i + 2]!;
-      const baseA = base.data[i + 3]!;
-
-      const overlayR = overlay.data[i]!;
-      const overlayG = overlay.data[i + 1]!;
-      const overlayB = overlay.data[i + 2]!;
-      const overlayA = overlay.data[i + 3]!;
-
-      // アルファブレンディング
-      if (overlayA > 0) {
-        const alpha = overlayA / 255;
-        const invAlpha = 1 - alpha;
-        
-        combined.data[i] = baseR * invAlpha + overlayR * alpha;
-        combined.data[i + 1] = baseG * invAlpha + overlayG * alpha;
-        combined.data[i + 2] = baseB * invAlpha + overlayB * alpha;
-        combined.data[i + 3] = Math.max(baseA, overlayA);
-      } else {
-        // オーバーレイが透明な場合はベースをそのまま使用
-        combined.data[i] = baseR;
-        combined.data[i + 1] = baseG;
-        combined.data[i + 2] = baseB;
-        combined.data[i + 3] = baseA;
-      }
-    }
-
-    return combined;
-  };
-
 
 
   const combineWithFiltering = (
@@ -539,13 +386,8 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     // 3. Contour Layer (Original image contour)
     if (displayOptions.layers.contour && brightnessData) {
       // 常にオリジナル画像の輝度データを使用
-      const contourData = hasBaseImage ? 
-        detectContoursWithThinning(brightnessData, contourSettings) :
-        detectContoursTransparent(brightnessData, contourSettings);
-      
-      baseImageData = hasBaseImage ? 
-        combineImageData(baseImageData, contourData) :
-        combineImageDataTransparent(baseImageData, contourData);
+      const contourData = detectContoursWithThinning(brightnessData, contourSettings);
+      baseImageData = combineImageData(baseImageData, contourData);
     }
 
     // 4. Filtered Contour Layer (Filtered image contour)
@@ -553,14 +395,8 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       if (filteredImageData) {
         // フィルタリングされた画像の輝度データを使用
         const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-        
-        const filteredContourData = hasBaseImage ?
-          detectContoursWithThinning(filteredBrightnessData, contourSettings) :
-          detectContoursTransparentWithThinning(filteredBrightnessData, contourSettings);
-        
-        baseImageData = hasBaseImage ? 
-          combineImageData(baseImageData, filteredContourData) :
-          combineImageDataTransparent(baseImageData, filteredContourData);
+        const filteredContourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
+        baseImageData = combineImageData(baseImageData, filteredContourData);
       }
     }
 
@@ -572,9 +408,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         const lowFreqToUse = displayOptions.grayscaleMode ?
           convertToGrayscale(frequencyData.lowFrequency) :
           frequencyData.lowFrequency;
-        baseImageData = hasBaseImage ?
-          combineImageData(baseImageData, lowFreqToUse) :
-          combineImageDataTransparent(baseImageData, lowFreqToUse);
+        baseImageData = combineImageData(baseImageData, lowFreqToUse);
       }
 
       // High Frequency Bright Layer
@@ -587,9 +421,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           baseImageData = combineWithLinearLight(baseImageData, highFreqBrightToUse);
         } else {
           // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = hasBaseImage ?
-            combineImageData(baseImageData, highFreqBrightToUse) :
-            combineImageDataTransparent(baseImageData, highFreqBrightToUse);
+          baseImageData = combineImageData(baseImageData, highFreqBrightToUse);
         }
       }
 
@@ -603,9 +435,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           baseImageData = combineWithLinearLight(baseImageData, highFreqDarkToUse);
         } else {
           // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = hasBaseImage ?
-            combineImageData(baseImageData, highFreqDarkToUse) :
-            combineImageDataTransparent(baseImageData, highFreqDarkToUse);
+          baseImageData = combineImageData(baseImageData, highFreqDarkToUse);
         }
       }
 
@@ -619,15 +449,13 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
           baseImageData = combineWithLinearLight(baseImageData, highFreqCombinedToUse);
         } else {
           // Low Frequencyがオフの場合: 通常合成でディテールのみ表示
-          baseImageData = hasBaseImage ?
-            combineImageData(baseImageData, highFreqCombinedToUse) :
-            combineImageDataTransparent(baseImageData, highFreqCombinedToUse);
+          baseImageData = combineImageData(baseImageData, highFreqCombinedToUse);
         }
       }
     }
 
     ctx.putImageData(baseImageData, 0, 0);
-  }, [detectContoursWithThinning, detectContoursTransparentWithThinning]);
+  }, [detectContoursWithThinning]);
 
   return {
     canvasRef,
