@@ -115,11 +115,14 @@ src/
 
 ## 🔄 改善バックログ
 
-- **パフォーマンス**: `renderWithLayers` は設定変更のたびにメインスレッドで全ピクセル走査を再実行する。中間結果のメモ化、Canvas の `drawImage` + `globalAlpha` / `globalCompositeOperation` によるGPU合成への置き換え、Web Worker 化が候補
-- **重複統合**: `detectContours` と `detectContoursTransparent`（および対応する thinning / combine 関数）はほぼ同一実装なので統合可能
 - **データ構造**: `brightnessMap: number[][]` を `Uint8Array` のフラット配列にすると速度・メモリが改善し、`!` アサーションも減らせる
-- **デバッグログ**: `console.log` が多数残存（useCanvasRenderer, useImageFilter, App 等）。開発時のみのロガーに置き換えるか削除する
+- **デバッグログ**: `console.log` が多数残存（useImageFilter, useLocalStorage, App 等）。開発時のみのロガーに置き換えるか削除する
 - **テスト**: テスト・CI が未整備。等高線検出や合成関数は純粋関数なので Vitest でのユニットテスト導入が容易
+- **Web Worker 化**: 等高線検出・OpenCV 処理は依然メインスレッド実行。超高解像度画像向けには Worker / OffscreenCanvas への移行が候補
+
+### 描画パイプラインの設計メモ（2026-06 改修済み）
+
+`useCanvasRenderer` はピクセルループ合成ではなく Canvas API（`drawImage` + `globalAlpha` + 合成モード）で合成する。等高線検出・グレースケール変換・Linear Light 分解は `RenderCache`（WeakMap ベース）にキャッシュされ、入力が変わったときだけ再計算される。Linear Light 合成は overlay を明部/暗部成分に事前分解し `lighter` / `difference` で適用（`base + 2*(overlay-128)` と厳密一致）。レイヤー追加時はこの方式を踏襲すること。
 - **エラー通知**: エクスポート失敗等が console にしか出ない。ユーザー向けトースト等の通知UIが未実装
 
 ---
