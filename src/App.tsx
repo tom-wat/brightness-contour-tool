@@ -5,12 +5,14 @@ import { DisplaySettings } from './components/DisplaySettings';
 import { ContourControls } from './components/ContourControls';
 import { ImageFilterControls } from './components/ImageFilterControls';
 import { FrequencyControls } from './components/FrequencyControls';
+import { NoiseReductionControls } from './components/NoiseReductionControls';
 import { MobileControlPanel } from './components/MobileControlPanel';
 import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
 import { useImageFilter } from './hooks/useImageFilter';
 import { useZoomPan } from './hooks/useZoomPan';
 import { useImageExport } from './hooks/useImageExport';
 import { useFrequencySeparation } from './hooks/useFrequencySeparation';
+import { useNoiseReduction } from './hooks/useNoiseReduction';
 import { SettingsStorage } from './hooks/useLocalStorage';
 import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
 import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from './types/UITypes';
@@ -19,9 +21,15 @@ import { FrequencySettings, DEFAULT_FREQUENCY_SETTINGS } from './types/Frequency
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
-  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(() =>
-    SettingsStorage.getDisplayOptions(DEFAULT_DISPLAY_OPTIONS)
-  );
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(() => {
+    // 保存済み設定にレイヤーが追加された場合に備えてデフォルトとマージする
+    const stored = SettingsStorage.getDisplayOptions(DEFAULT_DISPLAY_OPTIONS);
+    return {
+      ...DEFAULT_DISPLAY_OPTIONS,
+      ...stored,
+      layers: { ...DEFAULT_DISPLAY_OPTIONS.layers, ...stored.layers },
+    };
+  });
   const [contourSettings, setContourSettings] = useState<ContourSettings>(() =>
     SettingsStorage.getContourSettings({
       levels: DEFAULT_CONTOUR_LEVELS,
@@ -44,6 +52,7 @@ function App() {
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
   const { settings: imageFilterSettings, result: imageFilterResult, openCVLoaded: imageFilterOpenCVLoaded, openCVLoading: imageFilterOpenCVLoading, openCVError: imageFilterOpenCVError, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
   const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation, clearFrequencyData } = useFrequencySeparation();
+  const { settings: noiseReductionSettings, result: noiseReductionResult, openCVLoaded: noiseReductionOpenCVLoaded, openCVLoading: noiseReductionOpenCVLoading, openCVError: noiseReductionOpenCVError, processImage: processNoiseReduction, updateSettings: updateNoiseReductionSettings, clearResult: clearNoiseReductionResult } = useNoiseReduction();
   const { exportCurrentView } = useImageExport();
   
   // ズーム・パン機能
@@ -77,6 +86,7 @@ function App() {
     clearAnalysis(); // 輝度解析結果をクリア
     clearImageFilterResult(); // 画像フィルタ結果をクリア
     clearFrequencyData(); // 周波数分離結果をクリア
+    clearNoiseReductionResult(); // ノイズ除去結果をクリア
 
     // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
@@ -85,7 +95,7 @@ function App() {
     resetZoom();
     // 自動フィット有効化
     setShouldAutoFit(true);
-  }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult, clearFrequencyData]);
+  }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult, clearFrequencyData, clearNoiseReductionResult]);
 
   const handleContainerResize = useCallback((width: number, height: number) => {
     // コンテナサイズを保存
@@ -141,6 +151,12 @@ function App() {
       clearImageFilterResult();
     }
   }, [updateImageFilterSettings, clearImageFilterResult]);
+
+  const handleApplyNoiseReduction = useCallback(() => {
+    if (uploadedImage) {
+      processNoiseReduction(uploadedImage.originalImageData);
+    }
+  }, [uploadedImage, processNoiseReduction]);
 
   const handleApplyImageFilter = useCallback(() => {
     if (uploadedImage) {
@@ -232,6 +248,17 @@ function App() {
                   isProcessing={isFrequencyProcessing}
                   hasImageData={!!uploadedImage}
                 />
+                <NoiseReductionControls
+                  settings={noiseReductionSettings}
+                  onSettingsChange={updateNoiseReductionSettings}
+                  onApply={handleApplyNoiseReduction}
+                  processing={noiseReductionResult.processing}
+                  error={noiseReductionResult.error}
+                  hasImageData={!!uploadedImage}
+                  openCVLoaded={noiseReductionOpenCVLoaded}
+                  openCVLoading={noiseReductionOpenCVLoading}
+                  openCVError={noiseReductionOpenCVError}
+                />
               </div>
             </div>
 
@@ -246,6 +273,8 @@ function App() {
                   contourSettings={contourSettings}
                   filteredImageData={imageFilterResult.filteredImageData}
                   imageFilterOpacity={imageFilterSettings.opacity * 100}
+                  denoisedImageData={noiseReductionResult.denoisedImageData}
+                  denoiseOpacity={noiseReductionSettings.opacity * 100}
                   frequencyData={frequencyData}
                   transform={getTransform()}
                   onMouseDown={handleMouseDown}
@@ -307,6 +336,19 @@ function App() {
                     onApply={handleFrequencyApply}
                     isProcessing={isFrequencyProcessing}
                     hasImageData={!!uploadedImage}
+                  />
+                }
+                denoiseContent={
+                  <NoiseReductionControls
+                    settings={noiseReductionSettings}
+                    onSettingsChange={updateNoiseReductionSettings}
+                    onApply={handleApplyNoiseReduction}
+                    processing={noiseReductionResult.processing}
+                    error={noiseReductionResult.error}
+                    hasImageData={!!uploadedImage}
+                    openCVLoaded={noiseReductionOpenCVLoaded}
+                    openCVLoading={noiseReductionOpenCVLoading}
+                    openCVError={noiseReductionOpenCVError}
                   />
                 }
                 displayContent={

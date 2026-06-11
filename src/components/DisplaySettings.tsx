@@ -164,7 +164,45 @@ export const DisplaySettings: React.FC<DisplaySettingsProps> = ({
               </button>
             </div>
 
-            {/* Edge Layer */}
+            {/* Denoised Layer */}
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">
+                Denoised
+              </label>
+              <button
+                onClick={() => handleLayerToggle('denoised')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  displayOptions.layers.denoised ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-label="Toggle denoised layer"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    displayOptions.layers.denoised ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Denoised Contour Layer */}
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">
+                Denoised Contour
+              </label>
+              <button
+                onClick={() => handleLayerToggle('denoisedContour')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  displayOptions.layers.denoisedContour ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-label="Toggle denoised contour layer"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    displayOptions.layers.denoisedContour ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
 
             {/* All Frequency Layers */}
             <div className="flex items-center justify-between">

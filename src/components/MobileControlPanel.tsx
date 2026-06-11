@@ -4,6 +4,7 @@ const TABS = [
   { key: 'contour', label: 'Contour' },
   { key: 'filter', label: 'Filter' },
   { key: 'frequency', label: 'Frequency' },
+  { key: 'denoise', label: 'Denoise' },
   { key: 'display', label: 'Display' },
 ] as const;
 
@@ -13,6 +14,7 @@ interface MobileControlPanelProps {
   contourContent: React.ReactNode;
   filterContent: React.ReactNode;
   frequencyContent: React.ReactNode;
+  denoiseContent: React.ReactNode;
   displayContent: React.ReactNode;
 }
 
@@ -20,6 +22,7 @@ export const MobileControlPanel: React.FC<MobileControlPanelProps> = ({
   contourContent,
   filterContent,
   frequencyContent,
+  denoiseContent,
   displayContent,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey | null>(null);
@@ -32,6 +35,7 @@ export const MobileControlPanel: React.FC<MobileControlPanelProps> = ({
     contour: contourContent,
     filter: filterContent,
     frequency: frequencyContent,
+    denoise: denoiseContent,
     display: displayContent,
   };
 

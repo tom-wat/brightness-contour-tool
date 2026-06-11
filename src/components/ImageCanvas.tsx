@@ -11,6 +11,8 @@ interface ImageCanvasProps {
   contourSettings: ContourSettings;
   filteredImageData?: ImageData | null;
   imageFilterOpacity?: number;
+  denoisedImageData?: ImageData | null;
+  denoiseOpacity?: number;
   frequencyData?: FrequencyData | null;
   transform?: string;
   onMouseDown?: (e: React.MouseEvent) => void;
@@ -36,6 +38,8 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   contourSettings,
   filteredImageData,
   imageFilterOpacity = 100,
+  denoisedImageData,
+  denoiseOpacity = 100,
   frequencyData,
   transform,
   onMouseDown,
@@ -67,13 +71,17 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
     renderWithLayers(
       originalImageData,
       brightnessData,
-      filteredImageData || null,
       displayOptions,
       contourSettings,
-      imageFilterOpacity,
-      frequencyData
+      {
+        filteredImageData,
+        imageFilterOpacity,
+        denoisedImageData,
+        denoiseOpacity,
+        frequencyData,
+      }
     );
-  }, [originalImageData, brightnessData, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, frequencyData, renderWithLayers]);
+  }, [originalImageData, brightnessData, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, denoisedImageData, denoiseOpacity, frequencyData, renderWithLayers]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {

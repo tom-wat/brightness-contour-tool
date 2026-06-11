@@ -3,16 +3,23 @@ import { BrightnessData, ContourSettings } from '../types/ImageTypes';
 import { DisplayOptions } from '../types/UITypes';
 import { FrequencyData } from '../types/FrequencyTypes';
 
+// レイヤー描画に使う補助入力（処理結果画像と各種ブレンド率）
+export interface RenderLayerInputs {
+  filteredImageData?: ImageData | null;
+  imageFilterOpacity?: number; // 0-100
+  denoisedImageData?: ImageData | null;
+  denoiseOpacity?: number; // 0-100
+  frequencyData?: FrequencyData | null;
+}
+
 interface UseCanvasRendererReturn {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   renderWithLayers: (
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    filteredImageData: ImageData | null,
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
-    imageFilterOpacity?: number,
-    frequencyData?: FrequencyData | null
+    inputs?: RenderLayerInputs
   ) => void;
   clearCanvas: () => void;
 }
@@ -37,6 +44,7 @@ interface RenderCache {
   grayscale: WeakMap<ImageData, HTMLCanvasElement>;
   contour: ContourCacheEntry | null;
   filteredContour: ContourCacheEntry | null;
+  denoisedContour: ContourCacheEntry | null;
   linearLightParts: WeakMap<ImageData, LinearLightParts>;
   grayscaleLinearLightParts: WeakMap<ImageData, LinearLightParts>;
 }
@@ -46,6 +54,7 @@ const createRenderCache = (): RenderCache => ({
   grayscale: new WeakMap(),
   contour: null,
   filteredContour: null,
+  denoisedContour: null,
   linearLightParts: new WeakMap(),
   grayscaleLinearLightParts: new WeakMap(),
 });
@@ -299,17 +308,23 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
   const renderWithLayers = useCallback((
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
-    filteredImageData: ImageData | null,
     displayOptions: DisplayOptions,
     contourSettings: ContourSettings,
-    imageFilterOpacity: number = 100,
-    frequencyData: FrequencyData | null = null
+    inputs: RenderLayerInputs = {}
   ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const {
+      filteredImageData = null,
+      imageFilterOpacity = 100,
+      denoisedImageData = null,
+      denoiseOpacity = 100,
+      frequencyData = null,
+    } = inputs;
 
     const imageWidth = originalImageData.width;
     const imageHeight = originalImageData.height;
@@ -336,7 +351,7 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
     // 等高線キャンバスをキャッシュから取得（輝度データ・設定が変わったときだけ再計算）
     const getContourCanvas = (
-      entryName: 'contour' | 'filteredContour',
+      entryName: 'contour' | 'filteredContour' | 'denoisedContour',
       source: object,
       build: () => ImageData
     ): HTMLCanvasElement => {
@@ -379,6 +394,15 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
       }
     }
 
+    // 2.5. Denoised Layer
+    if (layers.denoised && denoisedImageData) {
+      // 下にベース画像がある場合は opacity でブレンド、単独表示なら不透明
+      const hasBaseUnder = layers.original || (layers.filtered && filteredImageData);
+      ctx.globalAlpha = hasBaseUnder ? denoiseOpacity / 100 : 1;
+      ctx.drawImage(getLayerCanvas(denoisedImageData), 0, 0);
+      ctx.globalAlpha = 1;
+    }
+
     // 3. Contour Layer (Original image contour)
     if (layers.contour && brightnessData) {
       const contourCanvas = getContourCanvas('contour', brightnessData, () =>
@@ -396,6 +420,17 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
         )
       );
       ctx.drawImage(filteredContourCanvas, 0, 0);
+    }
+
+    // 4.5. Denoised Contour Layer (ノイズ除去後画像の等高線)
+    if (layers.denoisedContour && brightnessData && denoisedImageData) {
+      const denoisedContourCanvas = getContourCanvas('denoisedContour', denoisedImageData, () =>
+        detectContoursWithThinning(
+          createBrightnessDataFromFiltered(denoisedImageData),
+          contourSettings
+        )
+      );
+      ctx.drawImage(denoisedContourCanvas, 0, 0);
     }
 
     // 5. Frequency Layers

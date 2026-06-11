@@ -1,8 +1,10 @@
 export interface DisplayLayers {
   original: boolean;
   filtered: boolean;
+  denoised: boolean;
   contour: boolean;
   filteredContour: boolean;
+  denoisedContour: boolean;
   lowFrequency: boolean;
   highFrequencyBright: boolean;
   highFrequencyDark: boolean;
@@ -18,8 +20,10 @@ export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
   layers: {
     original: true,
     filtered: false,
+    denoised: false,
     contour: true,
     filteredContour: false,
+    denoisedContour: false,
     lowFrequency: true,
     highFrequencyBright: true,
     highFrequencyDark: true,

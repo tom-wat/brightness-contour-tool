@@ -14,9 +14,25 @@ interface OpenCVSize {
   height: number;
 }
 
+interface OpenCVMatVector {
+  push_back(mat: OpenCVMat): void;
+  get(index: number): OpenCVMat;
+  size(): number;
+  delete(): void;
+}
+
 interface OpenCV {
   Mat: new (rows?: number, cols?: number, type?: number) => OpenCVMat;
+  MatVector: new () => OpenCVMatVector;
   Size: new (width: number, height: number) => OpenCVSize;
+  COLOR_RGBA2RGB: number;
+  COLOR_RGB2RGBA: number;
+  COLOR_RGB2YCrCb: number;
+  COLOR_YCrCb2RGB: number;
+  cvtColor(src: OpenCVMat, dst: OpenCVMat, code: number): void;
+  split(src: OpenCVMat, dst: OpenCVMatVector): void;
+  merge(src: OpenCVMatVector, dst: OpenCVMat): void;
+  bilateralFilter(src: OpenCVMat, dst: OpenCVMat, d: number, sigmaColor: number, sigmaSpace: number): void;
   GaussianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: OpenCVSize, sigmaX: number, sigmaY: number): void;
   imshow(canvas: HTMLCanvasElement, mat: OpenCVMat): void;
   matFromImageData(imageData: ImageData): OpenCVMat;

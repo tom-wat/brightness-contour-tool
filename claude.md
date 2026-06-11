@@ -24,6 +24,7 @@ src/
 ├── types/
 │   ├── ImageTypes.ts        # 画像・等高線設定（BrightnessData, ContourSettings 等）
 │   ├── ImageFilterTypes.ts  # 画像フィルタ設定（median / gaussian）
+│   ├── NoiseReductionTypes.ts # ノイズ除去設定（輝度/色 分離バイラテラル）
 │   ├── FrequencyTypes.ts    # 周波数分離設定・データ
 │   └── UITypes.ts           # 表示レイヤー設定（DisplayLayers, DisplayOptions）
 ├── components/
@@ -32,6 +33,7 @@ src/
 │   ├── ContourControls.tsx      # 等高線設定（左サイドバー）
 │   ├── ImageFilterControls.tsx  # 画像フィルタ設定（左サイドバー）
 │   ├── FrequencyControls.tsx    # 周波数分離設定（左サイドバー）
+│   ├── NoiseReductionControls.tsx # ノイズ除去設定（左サイドバー最下部）
 │   ├── DisplaySettings.tsx      # レイヤー表示切替＋エクスポート（右サイドバー）
 │   ├── ExportControls.tsx       # エクスポートUI（DisplaySettings 内で使用）
 │   └── MobileControlPanel.tsx   # モバイル用ボトムパネル（タブ切替）
@@ -41,6 +43,7 @@ src/
 │   ├── useCanvasRenderer.ts       # 等高線検出・レイヤー合成・Canvas描画
 │   ├── useImageFilter.ts          # 画像フィルタ（OpenCV.js: medianBlur / GaussianBlur）
 │   ├── useFrequencySeparation.ts  # 周波数分離（低周波／高周波明・暗・合成）
+│   ├── useNoiseReduction.ts       # ノイズ除去（YCrCb分離バイラテラル＋Detail復元）
 │   ├── useZoomPan.ts              # ズーム・パン（マウス／タッチ・ピンチ対応）
 │   ├── useImageExport.ts          # PNG / JPEG / WebP エクスポート
 │   └── useLocalStorage.ts         # SettingsStorage（localStorage への設定永続化）
@@ -67,8 +70,10 @@ src/
 |---|---|
 | `original` | 元画像 |
 | `filtered` | 画像フィルタ適用後の画像（opacity でブレンド） |
+| `denoised` | ノイズ除去後の画像（opacity でブレンド） |
 | `contour` | 元画像の輝度等高線 |
 | `filteredContour` | フィルタ後画像から生成した等高線 |
+| `denoisedContour` | ノイズ除去後画像から生成した等高線 |
 | `lowFrequency` | 周波数分離の低周波成分 |
 | `highFrequencyBright` | 高周波・明成分（Linear Light 合成） |
 | `highFrequencyDark` | 高周波・暗成分（Linear Light 合成） |
@@ -80,14 +85,15 @@ src/
 
 ## 🎛️ UIレイアウト
 
-- **デスクトップ（lg以上）**: 3パネル構成 — 左サイドバー（Contour / Image Filter / Frequency 設定）・中央（Canvas）・右サイドバー（レイヤー表示切替・エクスポート）
+- **デスクトップ（lg以上）**: 3パネル構成 — 左サイドバー（Contour / Image Filter / Frequency / Noise Reduction 設定）・中央（Canvas）・右サイドバー（レイヤー表示切替・エクスポート）
 - **モバイル**: Canvas ＋ ボトムの `MobileControlPanel`（タブで各設定パネルを切替）
-- 等高線設定の変更は 150ms デバウンスで再解析。画像フィルタ・周波数分離は Apply ボタンで明示実行
+- 等高線設定の変更は 150ms デバウンスで再解析。画像フィルタ・周波数分離・ノイズ除去は Apply ボタンで明示実行
 
 ## 💾 設定の永続化
 
 `SettingsStorage`（`src/hooks/useLocalStorage.ts`）が localStorage に保存：
-等高線設定・表示オプション・画像フィルタ設定・周波数分離設定・エクスポート設定・周波数レイヤー一括トグル状態。
+等高線設定・表示オプション・画像フィルタ設定・ノイズ除去設定・周波数分離設定・エクスポート設定・周波数レイヤー一括トグル状態。
+表示オプションは App 初期化時にデフォルトとマージするため、レイヤー追加時も保存済み設定と互換。
 読み込み時の値検証は最小限（`getContourSettings` の欠損フィールド補完のみ）なので、設定のシェイプを変えるときはマイグレーションを追加すること。
 
 ## ⚡ 開発ルール

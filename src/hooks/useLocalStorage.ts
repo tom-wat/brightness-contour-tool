@@ -7,6 +7,7 @@ export class SettingsStorage {
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
     ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
     IMAGE_FILTER_SETTINGS: 'brightness-contour-image-filter-settings',
+    NOISE_REDUCTION_SETTINGS: 'brightness-contour-noise-reduction-settings',
     FREQUENCY_SETTINGS: 'brightness-contour-frequency-settings',
     EXPORT_SETTINGS: 'brightness-contour-export-settings',
   } as const;
@@ -93,6 +94,23 @@ export class SettingsStorage {
       localStorage.setItem(this.KEYS.IMAGE_FILTER_SETTINGS, JSON.stringify(settings));
     } catch (error) {
       console.warn('Failed to save image filter settings:', error);
+    }
+  }
+
+  static getNoiseReductionSettings<T>(defaultValue: T): T {
+    try {
+      const stored = localStorage.getItem(this.KEYS.NOISE_REDUCTION_SETTINGS);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static saveNoiseReductionSettings<T>(settings: T): void {
+    try {
+      localStorage.setItem(this.KEYS.NOISE_REDUCTION_SETTINGS, JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Failed to save noise reduction settings:', error);
     }
   }
 
