@@ -1,18 +1,10 @@
 import { useCallback, useRef } from 'react';
 import { BrightnessData, ContourSettings } from '../types/ImageTypes';
-import { DisplayMode, DisplayOptions } from '../types/UITypes';
+import { DisplayOptions } from '../types/UITypes';
 import { FrequencyData } from '../types/FrequencyTypes';
 
 interface UseCanvasRendererReturn {
   canvasRef: React.RefObject<HTMLCanvasElement>;
-  renderImage: (
-    originalImageData: ImageData,
-    brightnessData: BrightnessData | null,
-    displayMode: DisplayMode,
-    contourSettings: ContourSettings,
-    filteredImageData?: ImageData | null,
-    imageFilterOpacity?: number
-  ) => void;
   renderWithLayers: (
     originalImageData: ImageData,
     brightnessData: BrightnessData | null,
@@ -463,142 +455,6 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
     return combined;
   };
 
-  const renderImage = useCallback((
-    originalImageData: ImageData,
-    brightnessData: BrightnessData | null,
-    displayMode: DisplayMode,
-    contourSettings: ContourSettings,
-    filteredImageData: ImageData | null = null,
-    imageFilterOpacity: number = 100
-  ) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Canvas サイズを設定
-    const imageWidth = originalImageData.width;
-    const imageHeight = originalImageData.height;
-    
-    canvas.width = imageWidth;
-    canvas.height = imageHeight;
-
-    let finalImageData = originalImageData;
-
-    // ぼかし処理が適用されている場合は、ぼかした画像を使用
-    const baseImageData = brightnessData ? brightnessData.imageData : originalImageData;
-
-    switch (displayMode) {
-      case DisplayMode.COLOR_ONLY:
-        finalImageData = baseImageData;
-        break;
-
-      case DisplayMode.GRAYSCALE_ONLY:
-        finalImageData = convertToGrayscale(baseImageData);
-        break;
-
-      case DisplayMode.CONTOUR_ONLY:
-        if (brightnessData) {
-          finalImageData = detectContoursWithThinning(brightnessData, contourSettings);
-        }
-        break;
-
-      case DisplayMode.COLOR_WITH_CONTOUR:
-        if (brightnessData) {
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          finalImageData = combineImageData(baseImageData, contourData);
-        }
-        break;
-
-      case DisplayMode.GRAYSCALE_WITH_CONTOUR:
-        if (brightnessData) {
-          const grayscaleData = convertToGrayscale(baseImageData);
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          finalImageData = combineImageData(grayscaleData, contourData);
-        }
-        break;
-
-
-
-
-
-
-      // Image Filter Display Modes
-      case DisplayMode.DENOISED_ONLY:
-        if (filteredImageData) {
-          finalImageData = filteredImageData;
-        } else {
-          // 画像フィルタが無効の場合は元画像を表示
-          finalImageData = baseImageData;
-        }
-        break;
-
-      case DisplayMode.DENOISED_GRAYSCALE_ONLY:
-        if (filteredImageData) {
-          finalImageData = convertToGrayscale(filteredImageData);
-        } else {
-          // 画像フィルタが無効の場合はグレースケール元画像を表示
-          finalImageData = convertToGrayscale(baseImageData);
-        }
-        break;
-
-      case DisplayMode.DENOISED_CONTOUR_ONLY:
-        if (filteredImageData && brightnessData) {
-          // 画像フィルタ画像から輝度データを生成して等高線のみ表示
-          const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          finalImageData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-        } else if (brightnessData) {
-          // 画像フィルタが無効の場合は通常の等高線のみ
-          finalImageData = detectContoursWithThinning(brightnessData, contourSettings);
-        }
-        break;
-
-
-      case DisplayMode.COLOR_WITH_DENOISED_CONTOUR:
-        if (filteredImageData && brightnessData) {
-          // Apply image filter to the base image first
-          const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
-          // Create brightness data from filtered image for accurate contour detection
-          const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-          finalImageData = combineImageData(filteredBase, contourData);
-        } else if (brightnessData) {
-          // 画像フィルタが無効の場合は通常の等高線表示
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          finalImageData = combineImageData(baseImageData, contourData);
-        }
-        break;
-
-      case DisplayMode.GRAYSCALE_WITH_DENOISED_CONTOUR:
-        if (filteredImageData && brightnessData) {
-          // Apply image filter to the base image first
-          const filteredBase = combineWithFiltering(baseImageData, filteredImageData, imageFilterOpacity);
-          // Convert to grayscale
-          const grayscaleBase = convertToGrayscale(filteredBase);
-          // Create brightness data from filtered image for accurate contour detection
-          const filteredBrightnessData = createBrightnessDataFromFiltered(filteredImageData);
-          const contourData = detectContoursWithThinning(filteredBrightnessData, contourSettings);
-          finalImageData = combineImageData(grayscaleBase, contourData);
-        } else if (brightnessData) {
-          // 画像フィルタが無効の場合はグレースケール通常等高線表示
-          const grayscaleBase = convertToGrayscale(baseImageData);
-          const contourData = detectContoursWithThinning(brightnessData, contourSettings);
-          finalImageData = combineImageData(grayscaleBase, contourData);
-        }
-        break;
-
-
-
-
-      default:
-        finalImageData = baseImageData;
-        break;
-    }
-
-    ctx.putImageData(finalImageData, 0, 0);
-  }, [detectContoursWithThinning]);
-
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -775,7 +631,6 @@ export const useCanvasRenderer = (): UseCanvasRendererReturn => {
 
   return {
     canvasRef,
-    renderImage,
     renderWithLayers,
     clearCanvas,
   };

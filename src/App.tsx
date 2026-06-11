@@ -247,7 +247,6 @@ function App() {
                   filteredImageData={imageFilterResult.filteredImageData}
                   imageFilterOpacity={imageFilterSettings.opacity * 100}
                   frequencyData={frequencyData}
-                  frequencySettings={frequencySettings}
                   transform={getTransform()}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}

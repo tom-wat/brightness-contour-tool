@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
-import { DisplayMode, DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from '../types/UITypes';
+import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from '../types/UITypes';
 import { ContourSettings } from '../types/ImageTypes';
-import { CannyParams } from '../types/CannyTypes';
-import { EdgeProcessingSettings } from '../types/EdgeProcessingTypes';
 
 export interface ExportSettings {
   format: 'png' | 'jpeg' | 'webp';
@@ -13,12 +11,8 @@ export interface ExportSettings {
 
 export interface ExportMetadata {
   timestamp: string;
-  displayMode?: DisplayMode; // 後方互換性のため残しておく
-  displayOptions?: DisplayOptions; // 新しい表示設定
+  displayOptions?: DisplayOptions;
   contourSettings: ContourSettings;
-  cannyParams?: CannyParams;
-  edgeProcessingSettings?: EdgeProcessingSettings;
-  cannyOpacity?: number;
   imageSize: {
     width: number;
     height: number;
@@ -26,9 +20,9 @@ export interface ExportMetadata {
 }
 
 export const useImageExport = () => {
-  
+
   const generateFilename = useCallback((
-    displayOptions: DisplayOptions | DisplayMode,
+    displayOptions: DisplayOptions,
     format: string,
     customName?: string
   ): string => {
@@ -37,20 +31,12 @@ export const useImageExport = () => {
     }
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-    
-    // 新しいDisplayOptionsの場合
-    if (typeof displayOptions === 'object' && 'layers' in displayOptions) {
-      const activeLayers = Object.entries(displayOptions.layers)
-        .filter(([, active]) => active)
-        .map(([layer]) => layer)
-        .join('-');
-      const grayscaleMode = displayOptions.grayscaleMode ? '-grayscale' : '';
-      return `brightness-contour-${activeLayers}${grayscaleMode}-${timestamp}.${format}`;
-    }
-    
-    // 従来のDisplayModeの場合（後方互換性）
-    const modeShort = (displayOptions as DisplayMode).replace(/_/g, '-').toLowerCase();
-    return `brightness-contour-${modeShort}-${timestamp}.${format}`;
+    const activeLayers = Object.entries(displayOptions.layers)
+      .filter(([, active]) => active)
+      .map(([layer]) => layer)
+      .join('-');
+    const grayscaleMode = displayOptions.grayscaleMode ? '-grayscale' : '';
+    return `brightness-contour-${activeLayers}${grayscaleMode}-${timestamp}.${format}`;
   }, []);
 
   const exportCanvasAsImage = useCallback((
@@ -77,7 +63,7 @@ export const useImageExport = () => {
           const link = document.createElement('a');
           link.href = url;
           link.download = filename || generateFilename(
-            metadata?.displayOptions || metadata?.displayMode || DEFAULT_DISPLAY_OPTIONS,
+            metadata?.displayOptions || DEFAULT_DISPLAY_OPTIONS,
             format
           );
 

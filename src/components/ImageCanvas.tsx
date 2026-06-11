@@ -1,19 +1,17 @@
 import React, { useRef, useEffect, forwardRef } from 'react';
 import { useCanvasRenderer } from '../hooks/useCanvasRenderer';
 import { BrightnessData, ContourSettings } from '../types/ImageTypes';
-import { DisplayMode, DisplayOptions } from '../types/UITypes';
-import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
+import { DisplayOptions } from '../types/UITypes';
+import { FrequencyData } from '../types/FrequencyTypes';
 
 interface ImageCanvasProps {
   originalImageData: ImageData;
   brightnessData: BrightnessData | null;
-  displayMode?: DisplayMode;
-  displayOptions?: DisplayOptions;
+  displayOptions: DisplayOptions;
   contourSettings: ContourSettings;
   filteredImageData?: ImageData | null;
   imageFilterOpacity?: number;
   frequencyData?: FrequencyData | null;
-  frequencySettings?: FrequencySettings;
   transform?: string;
   onMouseDown?: (e: React.MouseEvent) => void;
   onMouseMove?: (e: React.MouseEvent) => void;
@@ -34,13 +32,11 @@ interface ImageCanvasProps {
 export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   originalImageData,
   brightnessData,
-  displayMode,
   displayOptions,
   contourSettings,
   filteredImageData,
   imageFilterOpacity = 100,
   frequencyData,
-  frequencySettings,
   transform,
   onMouseDown,
   onMouseMove,
@@ -57,7 +53,7 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   onNativeTouchEnd,
   exportPreviewUrl,
 }, ref) => {
-  const { canvasRef, renderImage, renderWithLayers } = useCanvasRenderer();
+  const { canvasRef, renderWithLayers } = useCanvasRenderer();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 外部からのrefと内部のrefを同期
@@ -68,22 +64,16 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   }, [ref, canvasRef]);
 
   useEffect(() => {
-    if (displayOptions) {
-      // 新しいレイヤーベースの表示
-      renderWithLayers(
-        originalImageData,
-        brightnessData,
-        filteredImageData || null,
-        displayOptions,
-        contourSettings,
-        imageFilterOpacity,
-        frequencyData
-      );
-    } else if (displayMode) {
-      // 従来のdisplayModeベースの表示（後方互換性）
-      renderImage(originalImageData, brightnessData, displayMode, contourSettings, filteredImageData, imageFilterOpacity);
-    }
-  }, [originalImageData, brightnessData, displayMode, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, frequencyData, frequencySettings, renderImage, renderWithLayers]);
+    renderWithLayers(
+      originalImageData,
+      brightnessData,
+      filteredImageData || null,
+      displayOptions,
+      contourSettings,
+      imageFilterOpacity,
+      frequencyData
+    );
+  }, [originalImageData, brightnessData, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, frequencyData, renderWithLayers]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {

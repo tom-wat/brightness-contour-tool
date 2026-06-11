@@ -1,44 +1,9 @@
-import { useState, useCallback } from 'react';
-
-/**
- * localStorage with state synchronization custom hook
- */
-export function useLocalStorage<T>(
-  key: string,
-  initialValue: T
-): [T, (value: T | ((prev: T) => T)) => void] {
-  // Get from localStorage on initialization
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.warn(`Error reading localStorage key "${key}":`, error);
-      return initialValue;
-    }
-  });
-
-  // Update localStorage when state changes
-  const setValue = useCallback((value: T | ((prev: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.warn(`Error setting localStorage key "${key}":`, error);
-    }
-  }, [key, storedValue]);
-
-  return [storedValue, setValue];
-}
-
 /**
  * Settings persistence helper
  */
 export class SettingsStorage {
   private static readonly KEYS = {
     CONTOUR_SETTINGS: 'brightness-contour-contour-settings',
-    DISPLAY_MODE: 'brightness-contour-display-mode',
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
     ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
     IMAGE_FILTER_SETTINGS: 'brightness-contour-image-filter-settings',
@@ -79,23 +44,6 @@ export class SettingsStorage {
     }
   }
 
-
-  static getDisplayMode<T>(defaultValue: T): T {
-    try {
-      const stored = localStorage.getItem(this.KEYS.DISPLAY_MODE);
-      return stored ? JSON.parse(stored) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  static saveDisplayMode<T>(mode: T): void {
-    try {
-      localStorage.setItem(this.KEYS.DISPLAY_MODE, JSON.stringify(mode));
-    } catch (error) {
-      console.warn('Failed to save display mode:', error);
-    }
-  }
 
   static getDisplayOptions<T>(defaultValue: T): T {
     try {
