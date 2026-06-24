@@ -62,6 +62,8 @@ export const FrequencyControls: React.FC<FrequencyControlsProps> = ({
           >
             <option value="gaussian">Gaussian Blur</option>
             <option value="median">Median Filter</option>
+            <option value="bilateral">Bilateral Filter</option>
+            <option value="guided">Guided Filter (fast)</option>
           </select>
         </div>
 
@@ -80,6 +82,44 @@ export const FrequencyControls: React.FC<FrequencyControlsProps> = ({
             disabled={isProcessing}
           />
         </div>
+
+        {/* Bilateral: Color Sigma */}
+        {settings.filterMethod === 'bilateral' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Color Sigma: {settings.bilateralSigmaColor.toFixed(0)}
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="150"
+              step="1"
+              value={settings.bilateralSigmaColor}
+              onChange={(e) => handleSettingChange('bilateralSigmaColor', parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              disabled={isProcessing}
+            />
+          </div>
+        )}
+
+        {/* Guided: Smoothing */}
+        {settings.filterMethod === 'guided' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Smoothing: {settings.guidedStrength.toFixed(0)}
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              step="1"
+              value={settings.guidedStrength}
+              onChange={(e) => handleSettingChange('guidedStrength', parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              disabled={isProcessing}
+            />
+          </div>
+        )}
 
         {/* Intensity Controls */}
         <div className="grid grid-cols-1 gap-4">

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { FrequencyData, FrequencySettings } from '../types/FrequencyTypes';
+import { bilateralFilterMat, guidedFilterMat } from '../utils/edgePreservingFilters';
 
 
 export const useFrequencySeparation = () => {
@@ -171,15 +172,63 @@ export const useFrequencySeparation = () => {
     return new ImageData(result, width, height);
   }, [createGaussianKernel]);
 
+  // bilateral / guided でエッジ保持した低周波を生成する。
+  // 共有ユーティリティ（Mat 入出力）を ImageData ⇔ Mat 変換でラップする。
+  const applyEdgePreservingFilter = useCallback((
+    imageData: ImageData,
+    method: 'bilateral' | 'guided',
+    settings: FrequencySettings
+  ): ImageData => {
+    if (!window.cv || typeof window.cv.Mat !== 'function') {
+      throw new Error('OpenCV.js is not loaded or not ready');
+    }
+
+    const src = window.cv.matFromImageData(imageData);
+    let dst: ReturnType<typeof window.cv.matFromImageData> | null = null;
+    try {
+      if (method === 'bilateral') {
+        const sigmaSpace = Math.max(1, settings.blurRadius * 2);
+        dst = bilateralFilterMat(window.cv, src, settings.blurRadius, settings.bilateralSigmaColor, sigmaSpace);
+      } else {
+        dst = guidedFilterMat(window.cv, src, settings.blurRadius, settings.guidedStrength);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+      window.cv.imshow(canvas, dst);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Unable to get canvas 2D context');
+      }
+      return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } finally {
+      src.delete();
+      if (dst) dst.delete();
+    }
+  }, []);
+
   const separateFrequencies = useCallback(async (
     imageData: ImageData,
     settings: FrequencySettings
   ): Promise<FrequencyData> => {
 
     // Apply selected filter to get low frequency component
-    const lowFrequency = settings.filterMethod === 'gaussian'
-      ? applyGaussianBlur(imageData, settings.blurRadius)
-      : await applyMedianFilter(imageData, settings.blurRadius);
+    let lowFrequency: ImageData;
+    switch (settings.filterMethod) {
+      case 'gaussian':
+        lowFrequency = applyGaussianBlur(imageData, settings.blurRadius);
+        break;
+      case 'median':
+        lowFrequency = await applyMedianFilter(imageData, settings.blurRadius);
+        break;
+      case 'bilateral':
+        lowFrequency = applyEdgePreservingFilter(imageData, 'bilateral', settings);
+        break;
+      case 'guided':
+        lowFrequency = applyEdgePreservingFilter(imageData, 'guided', settings);
+        break;
+    }
 
     const { width, height } = imageData;
     const original = imageData.data;
@@ -239,7 +288,7 @@ export const useFrequencySeparation = () => {
       highFrequencyDark: new ImageData(highFreqDarkData, width, height),
       highFrequencyCombined: new ImageData(highFreqCombinedData, width, height),
     };
-  }, [applyGaussianBlur, applyMedianFilter]);
+  }, [applyGaussianBlur, applyMedianFilter, applyEdgePreservingFilter]);
 
   const processFrequencySeparation = useCallback(async (
     imageData: ImageData,

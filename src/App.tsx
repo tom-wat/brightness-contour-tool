@@ -44,7 +44,10 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportPreviewUrl, setExportPreviewUrl] = useState<string | null>(null);
   const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(() => {
-    return SettingsStorage.getFrequencySettings(DEFAULT_FREQUENCY_SETTINGS);
+    // 保存済み設定に新フィールド（bilateralSigmaColor / guidedStrength 等）が欠けても
+    // デフォルトとマージして互換性を保つ
+    const stored = SettingsStorage.getFrequencySettings(DEFAULT_FREQUENCY_SETTINGS);
+    return { ...DEFAULT_FREQUENCY_SETTINGS, ...stored };
   });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyzeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
