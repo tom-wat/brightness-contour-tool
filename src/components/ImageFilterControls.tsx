@@ -82,6 +82,8 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
           >
             <option value="gaussian">Gaussian Blur</option>
             <option value="median">Median Filter</option>
+            <option value="bilateral">Bilateral Filter</option>
+            <option value="guided">Guided Filter (fast)</option>
           </select>
         </div>
 
@@ -140,6 +142,101 @@ export const ImageFilterControls: React.FC<ImageFilterControlsProps> = ({
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               disabled={processing}
             />
+          </div>
+        )}
+
+        {settings.method === 'bilateral' && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter Radius: {settings.bilateralParams.radius.toFixed(0)}px
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                step="1"
+                value={settings.bilateralParams.radius}
+                onChange={(e) => onSettingsChange({
+                  bilateralParams: { ...settings.bilateralParams, radius: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={processing}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Color Sigma: {settings.bilateralParams.sigmaColor.toFixed(0)}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="150"
+                step="1"
+                value={settings.bilateralParams.sigmaColor}
+                onChange={(e) => onSettingsChange({
+                  bilateralParams: { ...settings.bilateralParams, sigmaColor: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={processing}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Space Sigma: {settings.bilateralParams.sigmaSpace.toFixed(0)}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={settings.bilateralParams.sigmaSpace}
+                onChange={(e) => onSettingsChange({
+                  bilateralParams: { ...settings.bilateralParams, sigmaSpace: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={processing}
+              />
+            </div>
+          </div>
+        )}
+
+        {settings.method === 'guided' && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter Radius: {settings.guidedParams.radius.toFixed(0)}px
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="50"
+                step="1"
+                value={settings.guidedParams.radius}
+                onChange={(e) => onSettingsChange({
+                  guidedParams: { ...settings.guidedParams, radius: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={processing}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Smoothing: {settings.guidedParams.strength.toFixed(0)}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={settings.guidedParams.strength}
+                onChange={(e) => onSettingsChange({
+                  guidedParams: { ...settings.guidedParams, strength: parseFloat(e.target.value) }
+                })}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={processing}
+              />
+            </div>
           </div>
         )}
 

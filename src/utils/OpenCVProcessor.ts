@@ -2,6 +2,7 @@
 interface OpenCVMat {
   delete(): void;
   data: Uint8Array;
+  data32F?: Float32Array; // CV_32F の Mat でのみ有効
   cols: number;
   rows: number;
   clone(): OpenCVMat;
@@ -12,6 +13,11 @@ interface OpenCVMat {
 interface OpenCVSize {
   width: number;
   height: number;
+}
+
+interface OpenCVPoint {
+  x: number;
+  y: number;
 }
 
 interface OpenCVMatVector {
@@ -25,6 +31,9 @@ interface OpenCV {
   Mat: new (rows?: number, cols?: number, type?: number) => OpenCVMat;
   MatVector: new () => OpenCVMatVector;
   Size: new (width: number, height: number) => OpenCVSize;
+  Point: new (x: number, y: number) => OpenCVPoint;
+  CV_32FC1: number;
+  BORDER_DEFAULT: number;
   COLOR_RGBA2RGB: number;
   COLOR_RGB2RGBA: number;
   COLOR_RGB2YCrCb: number;
@@ -34,6 +43,15 @@ interface OpenCV {
   merge(src: OpenCVMatVector, dst: OpenCVMat): void;
   bilateralFilter(src: OpenCVMat, dst: OpenCVMat, d: number, sigmaColor: number, sigmaSpace: number): void;
   GaussianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: OpenCVSize, sigmaX: number, sigmaY: number): void;
+  boxFilter(
+    src: OpenCVMat,
+    dst: OpenCVMat,
+    ddepth: number,
+    ksize: OpenCVSize,
+    anchor: OpenCVPoint,
+    normalize: boolean,
+    borderType: number
+  ): void;
   imshow(canvas: HTMLCanvasElement, mat: OpenCVMat): void;
   matFromImageData(imageData: ImageData): OpenCVMat;
   medianBlur(src: OpenCVMat, dst: OpenCVMat, ksize: number): void;

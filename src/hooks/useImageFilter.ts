@@ -6,6 +6,7 @@ import {
 } from '../types/ImageFilterTypes';
 import { SettingsStorage } from './useLocalStorage';
 import { openCVProcessor } from '../utils/OpenCVProcessor';
+import { bilateralFilterMat, guidedFilterMat } from '../utils/edgePreservingFilters';
 
 // OpenCV.js型定義のインポート（グローバル型を使用）
 declare global {
@@ -27,9 +28,19 @@ declare global {
 }
 
 export const useImageFilter = () => {
-  // Load settings from localStorage on initialization
+  // Load settings from localStorage on initialization.
+  // ストア済み設定に新しいフィールド（bilateralParams 等）が欠けている場合があるため
+  // デフォルトと浅く/深くマージして互換性を保つ
   const [settings, setSettings] = useState<ImageFilterSettings>(() => {
-    return SettingsStorage.getImageFilterSettings(DEFAULT_IMAGE_FILTER_SETTINGS);
+    const stored = SettingsStorage.getImageFilterSettings(DEFAULT_IMAGE_FILTER_SETTINGS);
+    return {
+      ...DEFAULT_IMAGE_FILTER_SETTINGS,
+      ...stored,
+      medianParams: { ...DEFAULT_IMAGE_FILTER_SETTINGS.medianParams, ...stored.medianParams },
+      gaussianParams: { ...DEFAULT_IMAGE_FILTER_SETTINGS.gaussianParams, ...stored.gaussianParams },
+      bilateralParams: { ...DEFAULT_IMAGE_FILTER_SETTINGS.bilateralParams, ...stored.bilateralParams },
+      guidedParams: { ...DEFAULT_IMAGE_FILTER_SETTINGS.guidedParams, ...stored.guidedParams }
+    };
   });
   const [result, setResult] = useState<ImageFilterResult>({
     filteredImageData: null,
@@ -229,6 +240,31 @@ export const useImageFilter = () => {
               );
             } catch (error) {
               throw new Error(`Gaussian filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+            break;
+          case 'bilateral':
+            try {
+              processed = bilateralFilterMat(
+                window.cv,
+                src,
+                settings.bilateralParams.radius,
+                settings.bilateralParams.sigmaColor,
+                settings.bilateralParams.sigmaSpace
+              );
+            } catch (error) {
+              throw new Error(`Bilateral filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+            break;
+          case 'guided':
+            try {
+              processed = guidedFilterMat(
+                window.cv,
+                src,
+                settings.guidedParams.radius,
+                settings.guidedParams.strength
+              );
+            } catch (error) {
+              throw new Error(`Guided filter failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
             break;
           default:
