@@ -1,23 +1,29 @@
-import { useState, useCallback, useRef } from 'react';
-import { ImageUploader } from './components/ImageUploader';
-import { ImageCanvas } from './components/ImageCanvas';
-import { DisplaySettings } from './components/DisplaySettings';
-import { ContourControls } from './components/ContourControls';
-import { ImageFilterControls } from './components/ImageFilterControls';
-import { FrequencyControls } from './components/FrequencyControls';
-import { NoiseReductionControls } from './components/NoiseReductionControls';
-import { MobileControlPanel } from './components/MobileControlPanel';
-import { useBrightnessAnalysis } from './hooks/useBrightnessAnalysis';
-import { useImageFilter } from './hooks/useImageFilter';
-import { useZoomPan } from './hooks/useZoomPan';
-import { useImageExport } from './hooks/useImageExport';
-import { useFrequencySeparation } from './hooks/useFrequencySeparation';
-import { useNoiseReduction } from './hooks/useNoiseReduction';
-import { SettingsStorage } from './hooks/useLocalStorage';
-import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from './types/ImageTypes';
-import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from './types/UITypes';
-import { ExportSettings } from './hooks/useImageExport';
-import { FrequencySettings, DEFAULT_FREQUENCY_SETTINGS } from './types/FrequencyTypes';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
+import { AppShell } from '@/components/layout/AppShell';
+import { ImageUploader } from '@/components/ImageUploader';
+import { ImageCanvas } from '@/components/ImageCanvas';
+import { ContourPanel } from '@/components/features/ContourPanel';
+import { ImageFilterPanel } from '@/components/features/ImageFilterPanel';
+import { FrequencyPanel } from '@/components/features/FrequencyPanel';
+import { NoiseReductionPanel } from '@/components/features/NoiseReductionPanel';
+import { DisplayPanel } from '@/components/features/DisplayPanel';
+import { ExportPanel } from '@/components/features/ExportPanel';
+import { useBrightnessAnalysis } from '@/hooks/useBrightnessAnalysis';
+import { useImageFilter } from '@/hooks/useImageFilter';
+import { useZoomPan } from '@/hooks/useZoomPan';
+import { useImageExport, ExportSettings } from '@/hooks/useImageExport';
+import { useFrequencySeparation } from '@/hooks/useFrequencySeparation';
+import { useNoiseReduction } from '@/hooks/useNoiseReduction';
+import { SettingsStorage } from '@/hooks/useLocalStorage';
+import { ImageUploadResult, ContourSettings, DEFAULT_CONTOUR_LEVELS } from '@/types/ImageTypes';
+import { DisplayOptions, DEFAULT_DISPLAY_OPTIONS } from '@/types/UITypes';
+import { ImageFilterSettings } from '@/types/ImageFilterTypes';
+import { FrequencySettings, DEFAULT_FREQUENCY_SETTINGS } from '@/types/FrequencyTypes';
+
+/** 等高線設定はドラッグ中に連続で変わるので、再解析はまとめて走らせる */
+const ANALYZE_DEBOUNCE_MS = 150;
 
 function App() {
   const [uploadedImage, setUploadedImage] = useState<ImageUploadResult | null>(null);
@@ -42,6 +48,7 @@ function App() {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
   const [shouldAutoFit, setShouldAutoFit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [downloadPreview, setDownloadPreview] = useState(false);
   const [exportPreviewUrl, setExportPreviewUrl] = useState<string | null>(null);
   const [frequencySettings, setFrequencySettings] = useState<FrequencySettings>(() => {
     // 保存済み設定に新フィールド（bilateralSigmaColor / guidedStrength 等）が欠けても
@@ -53,11 +60,34 @@ function App() {
   const analyzeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { brightnessData, analyzeBrightness, clearAnalysis } = useBrightnessAnalysis();
-  const { settings: imageFilterSettings, result: imageFilterResult, openCVLoaded: imageFilterOpenCVLoaded, openCVLoading: imageFilterOpenCVLoading, openCVError: imageFilterOpenCVError, processImage: processImageFilter, updateSettings: updateImageFilterSettings, clearResult: clearImageFilterResult } = useImageFilter();
-  const { frequencyData, isProcessing: isFrequencyProcessing, processFrequencySeparation, clearFrequencyData } = useFrequencySeparation();
-  const { settings: noiseReductionSettings, result: noiseReductionResult, openCVLoaded: noiseReductionOpenCVLoaded, openCVLoading: noiseReductionOpenCVLoading, openCVError: noiseReductionOpenCVError, processImage: processNoiseReduction, updateSettings: updateNoiseReductionSettings, clearResult: clearNoiseReductionResult } = useNoiseReduction();
+  const {
+    settings: imageFilterSettings,
+    result: imageFilterResult,
+    openCVLoaded: imageFilterOpenCVLoaded,
+    openCVLoading: imageFilterOpenCVLoading,
+    openCVError: imageFilterOpenCVError,
+    processImage: processImageFilter,
+    updateSettings: updateImageFilterSettings,
+    clearResult: clearImageFilterResult,
+  } = useImageFilter();
+  const {
+    frequencyData,
+    isProcessing: isFrequencyProcessing,
+    processFrequencySeparation,
+    clearFrequencyData,
+  } = useFrequencySeparation();
+  const {
+    settings: noiseReductionSettings,
+    result: noiseReductionResult,
+    openCVLoaded: noiseReductionOpenCVLoaded,
+    openCVLoading: noiseReductionOpenCVLoading,
+    openCVError: noiseReductionOpenCVError,
+    processImage: processNoiseReduction,
+    updateSettings: updateNoiseReductionSettings,
+    clearResult: clearNoiseReductionResult,
+  } = useNoiseReduction();
   const { exportCurrentView } = useImageExport();
-  
+
   // ズーム・パン機能
   const {
     zoomPanState,
@@ -81,35 +111,48 @@ function App() {
     uploadedImage?.height
   );
 
+  // 処理系のエラーは画面のどこにいても気づけるようトーストで出す
+  useEffect(() => {
+    if (imageFilterResult.error) toast.error(imageFilterResult.error);
+  }, [imageFilterResult.error]);
+
+  useEffect(() => {
+    if (noiseReductionResult.error) toast.error(noiseReductionResult.error);
+  }, [noiseReductionResult.error]);
+
   const handleImageUpload = useCallback((result: ImageUploadResult) => {
-    // 新しい画像を設定
     setUploadedImage(result);
 
     // すべての処理結果をリセット
-    clearAnalysis(); // 輝度解析結果をクリア
-    clearImageFilterResult(); // 画像フィルタ結果をクリア
-    clearFrequencyData(); // 周波数分離結果をクリア
-    clearNoiseReductionResult(); // ノイズ除去結果をクリア
+    clearAnalysis();
+    clearImageFilterResult();
+    clearFrequencyData();
+    clearNoiseReductionResult();
 
-    // 新しい画像で処理を開始
     analyzeBrightness(result.originalImageData, contourSettings);
 
-    // ズーム・パン状態をリセット
     resetZoom();
-    // 自動フィット有効化
     setShouldAutoFit(true);
   }, [analyzeBrightness, contourSettings, resetZoom, clearAnalysis, clearImageFilterResult, clearFrequencyData, clearNoiseReductionResult]);
 
+  const handleReset = useCallback(() => {
+    setUploadedImage(null);
+    clearAnalysis();
+    clearImageFilterResult();
+    clearFrequencyData();
+    clearNoiseReductionResult();
+    setExportPreviewUrl(null);
+    resetZoom();
+  }, [clearAnalysis, clearImageFilterResult, clearFrequencyData, clearNoiseReductionResult, resetZoom]);
+
   const handleContainerResize = useCallback((width: number, height: number) => {
-    // コンテナサイズを保存
     setContainerSize({ width, height });
-    
+
     // 自動フィットが有効で画像が読み込まれている場合のみ実行
     if (shouldAutoFit && uploadedImage) {
       // 少し遅延を入れてDOMが安定してからフィット実行
       setTimeout(() => {
         fitToScreen(width, height);
-        // 自動フィット無効化（一度だけ実行）
         setShouldAutoFit(false);
       }, 50);
     }
@@ -120,7 +163,6 @@ function App() {
     SettingsStorage.saveDisplayOptions(options);
   }, []);
 
-
   const handleContourSettingsChange = useCallback((settings: ContourSettings) => {
     setContourSettings(settings);
     SettingsStorage.saveContourSettings(settings);
@@ -128,10 +170,9 @@ function App() {
       if (analyzeDebounceRef.current) clearTimeout(analyzeDebounceRef.current);
       analyzeDebounceRef.current = setTimeout(() => {
         analyzeBrightness(uploadedImage.originalImageData, settings);
-      }, 150);
+      }, ANALYZE_DEBOUNCE_MS);
     }
   }, [uploadedImage, analyzeBrightness]);
-
 
   const handleFrequencySettingsChange = useCallback((settings: FrequencySettings) => {
     setFrequencySettings(settings);
@@ -139,239 +180,167 @@ function App() {
   }, []);
 
   const handleFrequencyApply = useCallback(() => {
-    if (uploadedImage?.originalImageData) {
+    if (uploadedImage) {
       processFrequencySeparation(uploadedImage.originalImageData, frequencySettings);
     }
-  }, [uploadedImage?.originalImageData, processFrequencySeparation, frequencySettings]);
+  }, [uploadedImage, processFrequencySeparation, frequencySettings]);
 
-  const handleImageFilterSettingsChange = useCallback((settings: Partial<typeof imageFilterSettings>) => {
-    console.log('Image filter settings changed:', settings);
+  const handleImageFilterSettingsChange = useCallback((settings: Partial<ImageFilterSettings>) => {
     updateImageFilterSettings(settings);
-    
-    // enabledがfalseに設定された場合は結果をクリア
-    if (settings.enabled === false) {
-      console.log('Disabling image filter');
-      clearImageFilterResult();
-    }
+    // 無効化されたら描画に使う結果も捨てる
+    if (settings.enabled === false) clearImageFilterResult();
   }, [updateImageFilterSettings, clearImageFilterResult]);
 
-  const handleApplyNoiseReduction = useCallback(() => {
-    if (uploadedImage) {
-      processNoiseReduction(uploadedImage.originalImageData);
-    }
-  }, [uploadedImage, processNoiseReduction]);
-
   const handleApplyImageFilter = useCallback(() => {
-    if (uploadedImage) {
-      console.log('Manually applying image filter');
-      // Apply時は自動的にenabledにする
-      if (!imageFilterSettings.enabled) {
-        updateImageFilterSettings({ enabled: true });
-      }
-      processImageFilter(uploadedImage.originalImageData);
-    }
+    if (!uploadedImage) return;
+    // Apply時は自動的にenabledにする
+    if (!imageFilterSettings.enabled) updateImageFilterSettings({ enabled: true });
+    processImageFilter(uploadedImage.originalImageData);
   }, [uploadedImage, imageFilterSettings.enabled, updateImageFilterSettings, processImageFilter]);
 
+  const handleApplyNoiseReduction = useCallback(() => {
+    if (uploadedImage) processNoiseReduction(uploadedImage.originalImageData);
+  }, [uploadedImage, processNoiseReduction]);
+
+  const handleDownloadPreviewChange = useCallback((on: boolean) => {
+    setDownloadPreview(on);
+    if (!on) setExportPreviewUrl(null);
+  }, []);
+
+  const handleExportPreviewUrl = useCallback((url: string | null) => {
+    setExportPreviewUrl(downloadPreview ? url : null);
+  }, [downloadPreview]);
 
   const handleExport = useCallback(async (settings: ExportSettings) => {
     if (!uploadedImage || !canvasRef.current) return;
 
     setIsExporting(true);
-    
     try {
-      const metadata = {
+      await exportCurrentView({ current: canvasRef.current }, settings, {
         timestamp: new Date().toISOString(),
         displayOptions,
         contourSettings,
-        imageSize: {
-          width: uploadedImage.width,
-          height: uploadedImage.height,
-        },
-      };
-
-      await exportCurrentView(
-        { current: canvasRef.current },
-        settings,
-        metadata
-      );
+        imageSize: { width: uploadedImage.width, height: uploadedImage.height },
+      });
+      toast.success(`Exported as ${settings.format.toUpperCase()}`);
     } catch (error) {
-      console.error('Export failed:', error);
-      // エラー通知は後で実装
+      toast.error(error instanceof Error ? error.message : 'Export failed.');
     } finally {
       setIsExporting(false);
     }
-  }, [
-    uploadedImage,
-    displayOptions,
-    contourSettings,
-    exportCurrentView,
-  ]);
+  }, [uploadedImage, displayOptions, contourSettings, exportCurrentView]);
+
+  const hasImage = !!uploadedImage;
+
+  const leftPanel = (
+    <>
+      <ContourPanel
+        settings={contourSettings}
+        onSettingsChange={handleContourSettingsChange}
+        disabled={!hasImage}
+      />
+      <ImageFilterPanel
+        settings={imageFilterSettings}
+        onSettingsChange={handleImageFilterSettingsChange}
+        onApply={handleApplyImageFilter}
+        processing={imageFilterResult.processing}
+        hasImage={hasImage}
+        openCVLoaded={imageFilterOpenCVLoaded}
+        openCVLoading={imageFilterOpenCVLoading}
+        openCVError={imageFilterOpenCVError}
+      />
+      <FrequencyPanel
+        settings={frequencySettings}
+        onSettingsChange={handleFrequencySettingsChange}
+        onApply={handleFrequencyApply}
+        processing={isFrequencyProcessing}
+        hasImage={hasImage}
+      />
+      <NoiseReductionPanel
+        settings={noiseReductionSettings}
+        onSettingsChange={updateNoiseReductionSettings}
+        onApply={handleApplyNoiseReduction}
+        processing={noiseReductionResult.processing}
+        hasImage={hasImage}
+        openCVLoaded={noiseReductionOpenCVLoaded}
+        openCVLoading={noiseReductionOpenCVLoading}
+        openCVError={noiseReductionOpenCVError}
+      />
+    </>
+  );
+
+  const rightPanel = (
+    <>
+      <DisplayPanel
+        options={displayOptions}
+        onOptionsChange={handleDisplayOptionsChange}
+        hasContour={!!brightnessData}
+        downloadPreview={downloadPreview}
+        onDownloadPreviewChange={handleDownloadPreviewChange}
+      />
+      <ExportPanel
+        onExport={handleExport}
+        isExporting={isExporting}
+        disabled={!hasImage}
+        canvasRef={canvasRef}
+        onPreviewUrlChange={handleExportPreviewUrl}
+      />
+    </>
+  );
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gray-50">
-      <header className="bg-white border-b border-gray-100">
-        <div className="px-6 py-3 flex items-center justify-between">
-          <h1
-            className={`text-lg font-bold text-gray-900 ${uploadedImage ? 'cursor-pointer hover:text-gray-600 transition-colors duration-200' : ''}`}
-            onClick={() => uploadedImage && setUploadedImage(null)}
-          >
-            Brightness Contour
-          </h1>
-        </div>
-      </header>
-
-      {!uploadedImage ? (
-        <main className="flex-1 w-full">
-          <ImageUploader onImageUpload={handleImageUpload} />
-        </main>
-      ) : (
-        <main className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
-            {/* Left Sidebar - Controls (desktop only) */}
-            <div className="hidden lg:flex w-80 bg-white border-r border-gray-100 flex-col">
-              <div className="flex-1 overflow-y-auto">
-                <ContourControls
-                  contourSettings={contourSettings}
-                  onContourSettingsChange={handleContourSettingsChange}
-                />
-                <ImageFilterControls
-                  settings={imageFilterSettings}
-                  onSettingsChange={handleImageFilterSettingsChange}
-                  processing={imageFilterResult.processing}
-                  error={imageFilterResult.error}
-                  onApplyImageFilter={handleApplyImageFilter}
-                  openCVLoaded={imageFilterOpenCVLoaded}
-                  openCVLoading={imageFilterOpenCVLoading}
-                  openCVError={imageFilterOpenCVError}
-                />
-                <FrequencyControls
-                  settings={frequencySettings}
-                  onSettingsChange={handleFrequencySettingsChange}
-                  onApply={handleFrequencyApply}
-                  isProcessing={isFrequencyProcessing}
-                  hasImageData={!!uploadedImage}
-                />
-                <NoiseReductionControls
-                  settings={noiseReductionSettings}
-                  onSettingsChange={updateNoiseReductionSettings}
-                  onApply={handleApplyNoiseReduction}
-                  processing={noiseReductionResult.processing}
-                  error={noiseReductionResult.error}
-                  hasImageData={!!uploadedImage}
-                  openCVLoaded={noiseReductionOpenCVLoaded}
-                  openCVLoading={noiseReductionOpenCVLoading}
-                  openCVError={noiseReductionOpenCVError}
-                />
-              </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="flex-1 min-h-0 bg-gray-50 flex flex-col">
-              <div className="flex-1 min-h-0">
-                <ImageCanvas
-                  ref={canvasRef}
-                  originalImageData={uploadedImage.originalImageData}
-                  brightnessData={brightnessData}
-                  displayOptions={displayOptions}
-                  contourSettings={contourSettings}
-                  filteredImageData={imageFilterResult.filteredImageData}
-                  imageFilterOpacity={imageFilterSettings.opacity * 100}
-                  denoisedImageData={noiseReductionResult.denoisedImageData}
-                  denoiseOpacity={noiseReductionSettings.opacity * 100}
-                  frequencyData={frequencyData}
-                  transform={getTransform()}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onWheel={handleWheel}
-                  onContainerResize={handleContainerResize}
-                  zoomLevel={zoomPanState.zoom}
-                  onZoomIn={zoomIn}
-                  onZoomOut={zoomOut}
-                  onFitToScreen={fitToScreen}
-                  onActualSize={actualSize}
-                  onNativeTouchStart={handleTouchStart}
-                  onNativeTouchMove={handleTouchMove}
-                  onNativeTouchEnd={handleTouchEnd}
-                  exportPreviewUrl={exportPreviewUrl}
-                />
-              </div>
-            </div>
-
-            {/* Right Sidebar - Display Settings (desktop only) */}
-            <div className="hidden lg:contents">
-              <DisplaySettings
-                displayOptions={displayOptions}
-                onDisplayOptionsChange={handleDisplayOptionsChange}
-                onExport={handleExport}
-                isExporting={isExporting}
-                hasContour={!!brightnessData}
-                canvasRef={canvasRef}
-                onExportPreviewUrlChange={setExportPreviewUrl}
-              />
-            </div>
-
-            {/* Mobile Bottom Control Panel */}
-            <div className="lg:hidden">
-              <MobileControlPanel
-                contourContent={
-                  <ContourControls
-                    contourSettings={contourSettings}
-                    onContourSettingsChange={handleContourSettingsChange}
-                  />
-                }
-                filterContent={
-                  <ImageFilterControls
-                    settings={imageFilterSettings}
-                    onSettingsChange={handleImageFilterSettingsChange}
-                    processing={imageFilterResult.processing}
-                    error={imageFilterResult.error}
-                    onApplyImageFilter={handleApplyImageFilter}
-                    openCVLoaded={imageFilterOpenCVLoaded}
-                    openCVLoading={imageFilterOpenCVLoading}
-                    openCVError={imageFilterOpenCVError}
-                  />
-                }
-                frequencyContent={
-                  <FrequencyControls
-                    settings={frequencySettings}
-                    onSettingsChange={handleFrequencySettingsChange}
-                    onApply={handleFrequencyApply}
-                    isProcessing={isFrequencyProcessing}
-                    hasImageData={!!uploadedImage}
-                  />
-                }
-                denoiseContent={
-                  <NoiseReductionControls
-                    settings={noiseReductionSettings}
-                    onSettingsChange={updateNoiseReductionSettings}
-                    onApply={handleApplyNoiseReduction}
-                    processing={noiseReductionResult.processing}
-                    error={noiseReductionResult.error}
-                    hasImageData={!!uploadedImage}
-                    openCVLoaded={noiseReductionOpenCVLoaded}
-                    openCVLoading={noiseReductionOpenCVLoading}
-                    openCVError={noiseReductionOpenCVError}
-                  />
-                }
-                displayContent={
-                  <DisplaySettings
-                    displayOptions={displayOptions}
-                    onDisplayOptionsChange={handleDisplayOptionsChange}
-                    onExport={handleExport}
-                    isExporting={isExporting}
-                    hasContour={!!brightnessData}
-                    className="w-full bg-white flex flex-col"
-                    canvasRef={canvasRef}
-                    onExportPreviewUrlChange={setExportPreviewUrl}
-                  />
-                }
-              />
-            </div>
+    <>
+      <AppShell
+        title="Brightness Contour"
+        onTitleClick={hasImage ? handleReset : undefined}
+        headerActions={
+          uploadedImage && (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {uploadedImage.width} × {uploadedImage.height}
+            </span>
+          )
+        }
+        leftPanel={leftPanel}
+        leftPanelLabel="Controls"
+        rightPanel={rightPanel}
+        rightPanelLabel="Display"
+      >
+        {uploadedImage ? (
+          <ImageCanvas
+            ref={canvasRef}
+            originalImageData={uploadedImage.originalImageData}
+            brightnessData={brightnessData}
+            displayOptions={displayOptions}
+            contourSettings={contourSettings}
+            filteredImageData={imageFilterResult.filteredImageData}
+            imageFilterOpacity={imageFilterSettings.opacity * 100}
+            denoisedImageData={noiseReductionResult.denoisedImageData}
+            denoiseOpacity={noiseReductionSettings.opacity * 100}
+            frequencyData={frequencyData}
+            transform={getTransform()}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onWheel={handleWheel}
+            onContainerResize={handleContainerResize}
+            zoomLevel={zoomPanState.zoom}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onFitToScreen={fitToScreen}
+            onActualSize={actualSize}
+            onNativeTouchStart={handleTouchStart}
+            onNativeTouchMove={handleTouchMove}
+            onNativeTouchEnd={handleTouchEnd}
+            exportPreviewUrl={exportPreviewUrl}
+          />
+        ) : (
+          <div className="h-full p-4 lg:p-6">
+            <ImageUploader onImageUpload={handleImageUpload} className="h-full" />
           </div>
-        </main>
-      )}
-    </div>
+        )}
+      </AppShell>
+      <Toaster />
+    </>
   );
 }
 

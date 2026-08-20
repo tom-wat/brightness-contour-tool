@@ -5,7 +5,6 @@ export class SettingsStorage {
   private static readonly KEYS = {
     CONTOUR_SETTINGS: 'brightness-contour-contour-settings',
     DISPLAY_OPTIONS: 'brightness-contour-display-options',
-    ALL_FREQUENCY_LAYERS_STATE: 'brightness-contour-all-frequency-layers-state',
     IMAGE_FILTER_SETTINGS: 'brightness-contour-image-filter-settings',
     NOISE_REDUCTION_SETTINGS: 'brightness-contour-noise-reduction-settings',
     FREQUENCY_SETTINGS: 'brightness-contour-frequency-settings',
@@ -60,23 +59,6 @@ export class SettingsStorage {
       localStorage.setItem(this.KEYS.DISPLAY_OPTIONS, JSON.stringify(options));
     } catch (error) {
       console.warn('Failed to save display options:', error);
-    }
-  }
-
-  static getAllFrequencyLayersState(defaultValue: boolean): boolean {
-    try {
-      const stored = localStorage.getItem(this.KEYS.ALL_FREQUENCY_LAYERS_STATE);
-      return stored ? JSON.parse(stored) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  static saveAllFrequencyLayersState(state: boolean): void {
-    try {
-      localStorage.setItem(this.KEYS.ALL_FREQUENCY_LAYERS_STATE, JSON.stringify(state));
-    } catch (error) {
-      console.warn('Failed to save all frequency layers state:', error);
     }
   }
 

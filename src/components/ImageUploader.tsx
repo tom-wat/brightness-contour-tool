@@ -1,97 +1,102 @@
-import React, { useCallback, useRef } from 'react';
-import { useImageUpload } from '../hooks/useImageUpload';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleNotch, Image as ImageIcon } from '@phosphor-icons/react';
+import { toast } from 'sonner';
+import { useImageUpload } from '@/hooks/useImageUpload';
+import { ImageUploadResult } from '@/types/ImageTypes';
+import { cn } from '@/lib/utils';
 
 interface ImageUploaderProps {
-  onImageUpload: (result: import('../types/ImageTypes').ImageUploadResult) => void;
+  onImageUpload: (result: ImageUploadResult) => void;
+  className?: string;
 }
 
-export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
+export function ImageUploader({ onImageUpload, className }: ImageUploaderProps) {
   const { uploadedImage, isLoading, error, handleFileUpload } = useImageUpload();
-  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDraggingOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    const imageFile = files.find(file => file.type.startsWith('image/'));
-    if (imageFile) {
-      handleFileUpload(imageFile);
-    }
-  }, [handleFileUpload]);
+  const handleFile = useCallback(
+    (file: File | undefined | null) => {
+      if (file && file.type.startsWith('image/')) void handleFileUpload(file);
+    },
+    [handleFileUpload]
+  );
 
-  const handleAreaClick = useCallback(() => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (uploadedImage) {
-      onImageUpload(uploadedImage);
-    }
+  useEffect(() => {
+    if (uploadedImage) onImageUpload(uploadedImage);
   }, [uploadedImage, onImageUpload]);
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
-    }
-  }, [handleFileUpload]);
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  // Paste an image straight from the clipboard.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) =>
+        i.type.startsWith('image/')
+      );
+      if (item) {
+        e.preventDefault();
+        handleFile(item.getAsFile());
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [handleFile]);
 
   return (
-    <div className="w-full h-full flex flex-col p-3 lg:p-6">
+    <div className={className}>
+      <div
+        role="button"
+        aria-label="Upload image"
+        className={cn(
+          'flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors',
+          isDragOver
+            ? 'border-primary bg-accent'
+            : 'border-border bg-background hover:border-muted-foreground'
+        )}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          handleFile(e.dataTransfer.files[0]);
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onClick={() => inputRef.current?.click()}
+      >
+        {isLoading ? (
+          <>
+            <CircleNotch size={40} className="animate-spin text-muted-foreground" />
+            <p className="mt-4 text-sm text-muted-foreground">Processing image…</p>
+          </>
+        ) : (
+          <>
+            <ImageIcon size={56} className="text-muted-foreground" weight="thin" />
+            <p className="mt-4 text-base font-medium">
+              <span className="hidden lg:inline">Drop image here, click to select, or paste</span>
+              <span className="lg:hidden">Tap to select image</span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              JPEG, PNG, GIF, WebP · up to 10 MB, 8000 × 8000 px
+            </p>
+          </>
+        )}
+      </div>
       <input
-        ref={fileInputRef}
+        ref={inputRef}
         type="file"
         accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
         className="hidden"
-        onChange={handleFileInputChange}
+        onChange={(e) => {
+          handleFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
       />
-      <div
-        className={`border-2 border-dashed text-center transition-all duration-200 flex-1 flex flex-col justify-center bg-white cursor-pointer rounded-lg ${isDraggingOver ? 'border-blue-400' : 'border-gray-300 hover:border-gray-400'}`}
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-        onDragEnter={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
-        onDragLeave={() => setIsDraggingOver(false)}
-        onClick={handleAreaClick}
-      >
-        {isLoading ? (
-          <div className="flex flex-col items-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <p className="text-gray-600">Processing image...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="text-6xl text-gray-300">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <p className="text-lg font-medium text-gray-900">
-                <span className="hidden lg:inline">Drop image here or click to select</span>
-                <span className="lg:hidden">Tap to select image</span>
-              </p>
-              <p className="text-sm text-gray-500">
-                <span className="hidden lg:inline">Supports: JPEG, PNG, GIF, WebP (Max: 10MB, 8000×8000px)</span>
-                <span className="lg:hidden">
-                  Supports: JPEG, PNG, GIF, WebP<br />
-                  (Max: 10MB, 8000×8000px)
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800 text-sm">{error}</p>
-        </div>
-      )}
-
     </div>
   );
-};
+}

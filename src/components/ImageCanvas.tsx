@@ -1,8 +1,11 @@
 import React, { useRef, useEffect, forwardRef } from 'react';
-import { useCanvasRenderer } from '../hooks/useCanvasRenderer';
-import { BrightnessData, ContourSettings } from '../types/ImageTypes';
-import { DisplayOptions } from '../types/UITypes';
-import { FrequencyData } from '../types/FrequencyTypes';
+import { CornersOut, Minus, Plus } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
+import { BrightnessData, ContourSettings } from '@/types/ImageTypes';
+import { DisplayOptions } from '@/types/UITypes';
+import { FrequencyData } from '@/types/FrequencyTypes';
+import { cn } from '@/lib/utils';
 
 interface ImageCanvasProps {
   originalImageData: ImageData;
@@ -31,7 +34,7 @@ interface ImageCanvasProps {
   exportPreviewUrl?: string | null;
 }
 
-export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
+export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(function ImageCanvas({
   originalImageData,
   brightnessData,
   displayOptions,
@@ -56,9 +59,10 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   onNativeTouchMove,
   onNativeTouchEnd,
   exportPreviewUrl,
-}, ref) => {
+}, ref) {
   const { canvasRef, renderWithLayers } = useCanvasRenderer();
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLImageElement>(null);
 
   // 外部からのrefと内部のrefを同期
   useEffect(() => {
@@ -82,6 +86,14 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
       }
     );
   }, [originalImageData, brightnessData, displayOptions, contourSettings, filteredImageData, imageFilterOpacity, denoisedImageData, denoiseOpacity, frequencyData, renderWithLayers]);
+
+  // ズーム・パンは毎フレーム変わる動的な値なので、JSX ではなく style に直接代入する。
+  // -50% の平行移動でキャンバスをコンテナ中央に置いてから拡大・平行移動する。
+  useEffect(() => {
+    const value = `translate(-50%, -50%) ${transform ?? ''}`.trimEnd();
+    if (canvasRef.current) canvasRef.current.style.transform = value;
+    if (previewRef.current) previewRef.current.style.transform = value;
+  }, [transform, exportPreviewUrl, canvasRef]);
 
   // コンテナサイズ変更を監視
   useEffect(() => {
@@ -169,10 +181,10 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
   }, [onWheel]);
 
   return (
-    <div className="h-full flex justify-center p-2 lg:p-6">
+    <div className="flex h-full justify-center p-2 lg:p-4">
       <div
         ref={containerRef}
-        className="relative bg-gray-100 rounded-lg overflow-hidden border border-gray-100 h-full min-h-[200px] lg:min-h-[400px] w-full max-w-[1200px]"
+        className="relative h-full min-h-[200px] w-full max-w-[1200px] overflow-hidden rounded-lg border bg-muted lg:min-h-[400px]"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -180,70 +192,46 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(({
       >
         <canvas
           ref={canvasRef}
-          className="absolute touch-none"
-          style={{
-            cursor: onMouseDown ? 'grab' : 'default',
-            transform: transform || 'none',
-            transformOrigin: 'center center',
-            transition: transform ? 'none' : 'transform 0.2s ease-out',
-            top: '50%',
-            left: '50%',
-            translate: '-50% -50%'
-          }}
+          className={cn('absolute top-1/2 left-1/2 origin-center touch-none', onMouseDown && 'cursor-grab')}
         />
         {exportPreviewUrl && (
           <img
+            ref={previewRef}
             src={exportPreviewUrl}
             alt=""
-            className="absolute touch-none pointer-events-none"
-            style={{
-              maxWidth: 'none',
-              transform: transform || 'none',
-              transformOrigin: 'center center',
-              transition: transform ? 'none' : 'transform 0.2s ease-out',
-              top: '50%',
-              left: '50%',
-              translate: '-50% -50%'
-            }}
+            className="pointer-events-none absolute top-1/2 left-1/2 max-w-none origin-center touch-none"
           />
         )}
         {onZoomIn && onZoomOut && (
           <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
-            <button
-              onClick={onZoomIn}
-              className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-600"
-              title="Zoom In"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-            <button
-              onClick={onZoomOut}
-              className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-600"
-              title="Zoom Out"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-              </svg>
-            </button>
+            <Button variant="outline" size="icon-sm" onClick={onZoomIn} aria-label="Zoom in">
+              <Plus />
+            </Button>
+            <Button variant="outline" size="icon-sm" onClick={onZoomOut} aria-label="Zoom out">
+              <Minus />
+            </Button>
             {onFitToScreen && (
-              <button
+              <Button
+                variant="outline"
+                size="icon-sm"
                 onClick={() => onFitToScreen()}
-                className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-xs text-gray-600 font-medium"
-                title="Fit to Screen"
+                aria-label="Fit to screen"
               >
-                Fit
-              </button>
+                <CornersOut />
+              </Button>
             )}
             {onActualSize && zoomLevel !== undefined && (
-              <button
+              <Button
+                variant="outline"
+                size="icon-sm"
                 onClick={onActualSize}
-                className="w-8 h-8 bg-white border border-gray-200 rounded shadow-sm hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-gray-500"
-                title="Actual Size (100%)"
+                aria-label="Actual size"
+                title="Actual size (100%)"
               >
-                <span className="text-[10px] font-medium leading-none">{Math.round(zoomLevel * 100)}%</span>
-              </button>
+                <span className="text-[10px] leading-none tabular-nums">
+                  {Math.round(zoomLevel * 100)}%
+                </span>
+              </Button>
             )}
           </div>
         )}
