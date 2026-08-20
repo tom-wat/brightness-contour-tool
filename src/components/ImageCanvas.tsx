@@ -5,7 +5,6 @@ import { useCanvasRenderer } from '@/hooks/useCanvasRenderer';
 import { BrightnessData, ContourSettings } from '@/types/ImageTypes';
 import { DisplayOptions } from '@/types/UITypes';
 import { FrequencyData } from '@/types/FrequencyTypes';
-import { cn } from '@/lib/utils';
 
 interface ImageCanvasProps {
   originalImageData: ImageData;
@@ -181,61 +180,56 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(funct
   }, [onWheel]);
 
   return (
-    <div className="flex h-full justify-center p-2 lg:p-4">
-      <div
-        ref={containerRef}
-        className="relative h-full min-h-[200px] w-full max-w-[1200px] overflow-hidden rounded-lg border bg-muted lg:min-h-[400px]"
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-      >
-        <canvas
-          ref={canvasRef}
-          className={cn('absolute top-1/2 left-1/2 origin-center touch-none', onMouseDown && 'cursor-grab')}
+    <div
+      ref={containerRef}
+      className="relative h-full w-full touch-none overflow-hidden bg-muted"
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      <canvas ref={canvasRef} className="absolute top-1/2 left-1/2 origin-center" />
+      {exportPreviewUrl && (
+        <img
+          ref={previewRef}
+          src={exportPreviewUrl}
+          alt=""
+          className="pointer-events-none absolute top-1/2 left-1/2 max-w-none origin-center"
         />
-        {exportPreviewUrl && (
-          <img
-            ref={previewRef}
-            src={exportPreviewUrl}
-            alt=""
-            className="pointer-events-none absolute top-1/2 left-1/2 max-w-none origin-center touch-none"
-          />
-        )}
-        {onZoomIn && onZoomOut && (
-          <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
-            <Button variant="outline" size="icon-sm" onClick={onZoomIn} aria-label="Zoom in">
-              <Plus />
+      )}
+      {onZoomIn && onZoomOut && (
+        <div className="absolute right-3 bottom-3 flex items-center gap-1 rounded-md border bg-background/90 p-1 shadow-sm backdrop-blur">
+          <Button variant="ghost" size="icon-sm" onClick={onZoomOut} aria-label="Zoom out">
+            <Minus />
+          </Button>
+          {/* flow-finder shows a plain readout here; this one doubles as the
+              100% button so actual size stays reachable. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-12 text-xs tabular-nums text-muted-foreground"
+            onClick={onActualSize}
+            disabled={!onActualSize}
+            aria-label="Actual size"
+            title="Actual size (100%)"
+          >
+            {Math.round((zoomLevel ?? 1) * 100)}%
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={onZoomIn} aria-label="Zoom in">
+            <Plus />
+          </Button>
+          {onFitToScreen && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onFitToScreen()}
+              aria-label="Fit to screen"
+            >
+              <CornersOut />
             </Button>
-            <Button variant="outline" size="icon-sm" onClick={onZoomOut} aria-label="Zoom out">
-              <Minus />
-            </Button>
-            {onFitToScreen && (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => onFitToScreen()}
-                aria-label="Fit to screen"
-              >
-                <CornersOut />
-              </Button>
-            )}
-            {onActualSize && zoomLevel !== undefined && (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={onActualSize}
-                aria-label="Actual size"
-                title="Actual size (100%)"
-              >
-                <span className="text-[10px] leading-none tabular-nums">
-                  {Math.round(zoomLevel * 100)}%
-                </span>
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });

@@ -27,6 +27,8 @@ export interface UseZoomPanReturn {
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 5.0;
 const ZOOM_STEP = 0.2;
+/** Fit leaves this much of the container as margin around the image. */
+const FIT_MARGIN_FACTOR = 0.95;
 
 export const useZoomPan = (
   containerWidth?: number,
@@ -83,9 +85,9 @@ export const useZoomPan = (
     
     if (!cWidth || !cHeight || !imageWidth || !imageHeight) return;
 
-    const verticalPadding = 32; // 上下各16pxの余白
-    const scaleX = cWidth / imageWidth;
-    const scaleY = (cHeight - verticalPadding) / imageHeight;
+    // キャンバスは main を全面で使うので、上下左右に同じだけ余白を残す
+    const scaleX = (cWidth * FIT_MARGIN_FACTOR) / imageWidth;
+    const scaleY = (cHeight * FIT_MARGIN_FACTOR) / imageHeight;
     const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
 
     setZoomPanState({
