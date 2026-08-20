@@ -231,6 +231,10 @@ function App() {
   }, [uploadedImage, displayOptions, contourSettings, exportCurrentView]);
 
   const hasImage = !!uploadedImage;
+  // 画像が差し替わったことを Export のサイズ見積もりに伝えるためのキー
+  const imageId = uploadedImage
+    ? `${uploadedImage.file.name}-${uploadedImage.file.lastModified}-${uploadedImage.width}x${uploadedImage.height}`
+    : null;
 
   const leftPanel = (
     <>
@@ -283,6 +287,7 @@ function App() {
         isExporting={isExporting}
         disabled={!hasImage}
         canvasRef={canvasRef}
+        imageId={imageId}
         onPreviewUrlChange={handleExportPreviewUrl}
       />
     </>

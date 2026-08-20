@@ -63,11 +63,14 @@ export const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(funct
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLImageElement>(null);
 
-  // 外部からのrefと内部のrefを同期
+  // 外部からのrefと内部のrefを同期。アンマウント後も外部refが外れたcanvas
+  // （前の画像が描かれたまま）を指し続けないよう、必ず null に戻す
   useEffect(() => {
-    if (ref && typeof ref === 'object' && canvasRef.current) {
-      ref.current = canvasRef.current;
-    }
+    if (!ref || typeof ref !== 'object') return;
+    ref.current = canvasRef.current;
+    return () => {
+      ref.current = null;
+    };
   }, [ref, canvasRef]);
 
   useEffect(() => {

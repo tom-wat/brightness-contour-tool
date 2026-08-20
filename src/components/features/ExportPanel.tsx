@@ -45,6 +45,8 @@ interface ExportPanelProps {
   isExporting: boolean;
   disabled: boolean;
   canvasRef?: React.RefObject<HTMLCanvasElement>;
+  /** Changes whenever a different image is loaded, so the stale size estimate can be dropped. */
+  imageId?: string | null;
   /** Receives an object URL of the re-encoded canvas, or null when there is none. */
   onPreviewUrlChange?: (url: string | null) => void;
 }
@@ -54,6 +56,7 @@ export function ExportPanel({
   isExporting,
   disabled,
   canvasRef,
+  imageId,
   onPreviewUrlChange,
 }: ExportPanelProps) {
   const initial = SettingsStorage.getExportSettings(DEFAULT_EXPORT_SETTINGS);
@@ -63,14 +66,17 @@ export function ExportPanel({
   const [previewSize, setPreviewSize] = useState<number | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onPreviewUrlChangeRef = useRef(onPreviewUrlChange);
+  onPreviewUrlChangeRef.current = onPreviewUrlChange;
 
   const persist = (patch: Partial<StoredExportSettings>) => {
     SettingsStorage.saveExportSettings({ format, quality, customFilename, ...patch });
   };
 
   // PNG is lossless, so there is nothing to preview or measure for it.
+  // 画像が無いとき（最初の画面）も測らない。
   useEffect(() => {
-    if (format === 'png' || !canvasRef?.current) {
+    if (format === 'png' || !imageId || !canvasRef?.current) {
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
         previewUrlRef.current = null;
@@ -102,7 +108,17 @@ export function ExportPanel({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [format, quality, canvasRef, onPreviewUrlChange]);
+  }, [format, quality, canvasRef, imageId, onPreviewUrlChange]);
+
+  // 別の画像に差し替わったら、前の画像で測ったサイズとプレビューは捨てる
+  useEffect(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    onPreviewUrlChangeRef.current?.(null);
+    setPreviewSize(null);
+  }, [imageId]);
 
   useEffect(() => {
     return () => {
@@ -160,9 +176,11 @@ export function ExportPanel({
             unit="%"
             disabled={isExporting}
           />
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {previewSize === null ? 'Estimating size…' : `About ${formatBytes(previewSize)}`}
-          </p>
+          {previewSize !== null && (
+            <p className="text-xs tabular-nums text-muted-foreground">
+              About {formatBytes(previewSize)}
+            </p>
+          )}
         </div>
       )}
 
