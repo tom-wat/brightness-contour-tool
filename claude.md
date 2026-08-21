@@ -19,6 +19,8 @@ npm run preview     # ビルド結果のプレビュー
 
 注意: `postinstall` で `node_modules/@techstark/opencv-js/dist/opencv.js` を `public/opencv.js` にコピーする（`public/opencv.js` は .gitignore 対象）。OpenCV.js は `index.html` の `<script async>` で読み込み、PWA の runtime cache でキャッシュされる。
 
+フォント（JetBrains Mono Variable）は `vite.config.ts` の `preloadFonts` プラグインが latin サブセットの `<link rel="preload">` をビルド時に注入し、workbox の `globPatterns` に `woff2` を含めてプリキャッシュする。**どちらか片方でも外すと PWA 起動時に FOIT が出る**ので消さないこと。
+
 ## 📁 プロジェクト構成
 
 ```
