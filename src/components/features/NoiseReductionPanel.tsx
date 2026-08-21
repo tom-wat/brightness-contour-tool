@@ -29,7 +29,6 @@ export function NoiseReductionPanel({
 
   return (
     <CollapsibleSection title="Noise Reduction" defaultOpen={false}>
-      {openCVLoading && <StatusNote>Loading OpenCV.js…</StatusNote>}
       {!openCVLoading && openCVError && (
         <StatusNote error>OpenCV.js failed to load. Reload the page to retry.</StatusNote>
       )}

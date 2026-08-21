@@ -38,7 +38,6 @@ export function ImageFilterPanel({
 
   return (
     <CollapsibleSection title="Image Filter">
-      {openCVLoading && <StatusNote>Loading OpenCV.js…</StatusNote>}
       {!openCVLoading && openCVError && (
         <StatusNote error>OpenCV.js failed to load. Reload the page to retry.</StatusNote>
       )}
