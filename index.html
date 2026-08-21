@@ -4,7 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="theme-color" content="#111827" />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- Apply the stored theme before first paint so dark mode never flashes white.
+         The key must match THEME_STORAGE_KEY in src/components/layout/ThemeProvider.tsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('brightness-contour-theme') || 'system'
+          var dark =
+            stored === 'dark' ||
+            (stored === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#0a0a0a' : '#ffffff')
+        } catch (e) {}
+      })()
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brightness Contour</title>
     <script async src="/opencv.js" onload="console.log('OpenCV.js script loaded')" onerror="console.error('Failed to load OpenCV.js script')"></script>

@@ -7,6 +7,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 
 interface AppShellProps {
   title: string
@@ -82,7 +83,10 @@ export function AppShell({
             title
           )}
         </h1>
-        <div className="flex items-center gap-2">{headerActions}</div>
+        <div className="flex items-center gap-2">
+          {headerActions}
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
